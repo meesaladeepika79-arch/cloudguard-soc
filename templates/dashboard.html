@@ -286,6 +286,10 @@
 <script>
 document.addEventListener('DOMContentLoaded', () => {
   loadAwsConnectionStatus();
+  restoreAwsCredentials();
+  ['dashboard-aws-access-key-id', 'dashboard-aws-secret-access-key', 'dashboard-aws-session-token'].forEach(fieldId => {
+    document.getElementById(fieldId).addEventListener('input', rememberAwsCredentialFields);
+  });
 });
 
 function startDashboardScan() {
@@ -294,6 +298,7 @@ function startDashboardScan() {
     aws_secret_access_key: document.getElementById('dashboard-aws-secret-access-key').value.trim(),
     aws_session_token: document.getElementById('dashboard-aws-session-token').value.trim()
   };
+  saveAwsCredentials(credentials);
   triggerScanExecution(false, document.getElementById('dashboard-aws-region').value, credentials);
 }
 
@@ -303,6 +308,7 @@ function saveAwsConnectionAndScan() {
     aws_secret_access_key: document.getElementById('dashboard-aws-secret-access-key').value.trim(),
     aws_session_token: document.getElementById('dashboard-aws-session-token').value.trim()
   };
+  saveAwsCredentials(credentials);
   triggerScanExecution(false, document.getElementById('dashboard-aws-region').value, credentials);
 }
 
@@ -322,8 +328,35 @@ function disconnectAwsAccount() {
     document.getElementById('aws-connection-status').className = 'badge bg-secondary';
     document.getElementById('aws-connection-status').innerText = 'Not connected';
     clearAwsCredentialFields(false);
+    sessionStorage.removeItem('cloudguard_aws_credentials');
     loadDashboardData();
   });
+}
+
+function saveAwsCredentials(credentials) {
+  sessionStorage.setItem('cloudguard_aws_credentials', JSON.stringify(credentials));
+}
+
+function rememberAwsCredentialFields() {
+  saveAwsCredentials({
+    aws_access_key_id: document.getElementById('dashboard-aws-access-key-id').value,
+    aws_secret_access_key: document.getElementById('dashboard-aws-secret-access-key').value,
+    aws_session_token: document.getElementById('dashboard-aws-session-token').value
+  });
+}
+
+function restoreAwsCredentials() {
+  const saved = sessionStorage.getItem('cloudguard_aws_credentials');
+  if (!saved) return;
+
+  try {
+    const credentials = JSON.parse(saved);
+    document.getElementById('dashboard-aws-access-key-id').value = credentials.aws_access_key_id || '';
+    document.getElementById('dashboard-aws-secret-access-key').value = credentials.aws_secret_access_key || '';
+    document.getElementById('dashboard-aws-session-token').value = credentials.aws_session_token || '';
+  } catch (error) {
+    sessionStorage.removeItem('cloudguard_aws_credentials');
+  }
 }
 
 function toggleAwsField(fieldId, button) {
