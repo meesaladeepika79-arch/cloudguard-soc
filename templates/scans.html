@@ -31,6 +31,22 @@
         </select>
       </div>
 
+      <div class="row g-2 mb-3" id="aws-credentials-fields">
+        <div class="col-12">
+          <label class="small text-gold fw-bold text-uppercase mb-1" for="aws-access-key-id">AWS Access Key ID</label>
+          <input type="text" id="aws-access-key-id" class="form-control form-control-dark" autocomplete="off" placeholder="AKIA...">
+        </div>
+        <div class="col-12">
+          <label class="small text-gold fw-bold text-uppercase mb-1" for="aws-secret-access-key">AWS Secret Access Key</label>
+          <input type="password" id="aws-secret-access-key" class="form-control form-control-dark" autocomplete="new-password" placeholder="Enter secret access key">
+        </div>
+        <div class="col-12">
+          <label class="small text-gold fw-bold text-uppercase mb-1" for="aws-session-token">AWS Session Token <span class="text-muted fw-normal">(optional)</span></label>
+          <input type="password" id="aws-session-token" class="form-control form-control-dark" autocomplete="new-password" placeholder="Only required for temporary credentials">
+          <div class="form-text text-dim">Credentials are used for this scan only and are never stored.</div>
+        </div>
+      </div>
+
       <div class="royal-switch-container mb-4">
         <div class="form-check form-switch mb-1">
           <input class="form-check-input royal-checkbox-highlight" type="checkbox" id="mode-switch">
@@ -157,7 +173,11 @@ function loadScansTable() {
 function triggerScanFromConsole() {
   const isDemo = document.getElementById('mode-switch').checked;
   const region = document.getElementById('scan-region-select').value;
-  triggerScanExecution(isDemo, region);
+  triggerScanExecution(isDemo, region, {
+    aws_access_key_id: document.getElementById('aws-access-key-id').value,
+    aws_secret_access_key: document.getElementById('aws-secret-access-key').value,
+    aws_session_token: document.getElementById('aws-session-token').value
+  });
 }
 
 function loadSchedulerStatus() {

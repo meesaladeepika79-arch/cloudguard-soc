@@ -1,8 +1,18 @@
 import os
 from flask import Flask
+from sqlalchemy import inspect, text
 from config import Config
 from models.database_models import db, User, Resource, Finding, Scan
 from security.scanner import run_security_scan
+
+def migrate_ownership_columns():
+    """Add ownership columns when upgrading an existing SQLite database."""
+    inspector = inspect(db.engine)
+    for table in ('resources', 'findings', 'scans', 'alerts'):
+        columns = {column['name'] for column in inspector.get_columns(table)}
+        if 'owner_id' not in columns:
+            db.session.execute(text(f'ALTER TABLE {table} ADD COLUMN owner_id INTEGER'))
+    db.session.commit()
 
 def create_app():
     app = Flask(__name__)
@@ -38,6 +48,7 @@ def create_app():
             pass
 
         db.create_all()
+        migrate_ownership_columns()
 
         # Seed Default Admin User if missing
         admin_user = User.query.filter_by(username='admin').first()
@@ -48,12 +59,19 @@ def create_app():
             db.session.commit()
             print("[+] Seeded default admin user: admin / admin123")
 
+        # Preserve data created before per-user ownership was introduced.
+        for model in (Resource, Finding, Scan):
+            model.query.filter_by(owner_id=None).update({'owner_id': admin_user.id})
+        from models.database_models import Alert
+        Alert.query.filter_by(owner_id=None).update({'owner_id': admin_user.id})
+        db.session.commit()
+
         # Initial Scan Run if DB has no scan history and DEMO_MODE is True
         if app.config.get('DEMO_MODE', False):
             scan_count = Scan.query.count()
             if scan_count == 0:
                 print("[+] Seeding initial demo scan and mock cloud resources...")
-                run_security_scan(demo_mode=True)
+                run_security_scan(demo_mode=True, owner_id=admin_user.id)
                 print("[+] Demo cloud environment initialized successfully.")
 
     return app

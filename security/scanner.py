@@ -174,18 +174,27 @@ DEMO_MOCK_RESOURCE_IDS = [
     'arn:aws:rds:us-east-1:123456789012:db:analytics-postgres'
 ]
 
-def purge_all_demo_data():
+def purge_all_demo_data(owner_id=None):
     """Completely wipes all mock/simulated demo resources, findings, alerts, and demo scans."""
     try:
         for mock_id in DEMO_MOCK_RESOURCE_IDS:
-            findings = Finding.query.filter_by(resource_id=mock_id).all()
+            findings_query = Finding.query.filter_by(resource_id=mock_id)
+            if owner_id is not None:
+                findings_query = findings_query.filter_by(owner_id=owner_id)
+            findings = findings_query.all()
             for f in findings:
                 Alert.query.filter_by(finding_id=f.id).delete()
                 db.session.delete(f)
-            Resource.query.filter_by(resource_id=mock_id).delete()
+            resource_query = Resource.query.filter_by(resource_id=mock_id)
+            if owner_id is not None:
+                resource_query = resource_query.filter_by(owner_id=owner_id)
+            resource_query.delete()
 
         # Delete any demo scan entries from history
-        Scan.query.filter(Scan.scan_mode.like('%Demo%')).delete()
+        scan_query = Scan.query.filter(Scan.scan_mode.like('%Demo%'))
+        if owner_id is not None:
+            scan_query = scan_query.filter_by(owner_id=owner_id)
+        scan_query.delete()
         db.session.commit()
         logger.info("Purged all simulated demo resources and findings successfully.")
         return True, "Demo resources and findings removed."
@@ -195,7 +204,8 @@ def purge_all_demo_data():
         return False, str(e)
 
 
-def run_security_scan(demo_mode=True, region_name=None):
+def run_security_scan(demo_mode=True, region_name=None, owner_id=None,
+                      access_key_id=None, secret_access_key=None, session_token=None):
     """
     Executes an end-to-end security scan.
     1. Collects raw resources (Mock generator or AWS Boto3 across regions).
@@ -214,9 +224,14 @@ def run_security_scan(demo_mode=True, region_name=None):
         raw_resources = get_demo_resources()
     else:
         # Wipe out any residual demo/mock resources so only real AWS assets show
-        purge_all_demo_data()
+        purge_all_demo_data(owner_id=owner_id)
 
-        raw_resources, error_msg = discover_aws_resources(region_name=target_region)
+        raw_resources, error_msg = discover_aws_resources(
+            region_name=target_region,
+            access_key_id=access_key_id,
+            secret_access_key=secret_access_key,
+            session_token=session_token
+        )
         if error_msg:
             # Do NOT silently fallback to mock demo resources when user requested real AWS
             raw_resources = []
@@ -235,10 +250,11 @@ def run_security_scan(demo_mode=True, region_name=None):
         config = item['config']
 
         # Find or create DB Resource entry
-        resource_db = Resource.query.filter_by(resource_id=res_id).first()
+        resource_db = Resource.query.filter_by(resource_id=res_id, owner_id=owner_id).first()
         if not resource_db:
             resource_db = Resource(
                 resource_id=res_id,
+                owner_id=owner_id,
                 resource_name=res_name,
                 resource_type=res_type,
                 region=region,
@@ -277,10 +293,13 @@ def run_security_scan(demo_mode=True, region_name=None):
             finding_unique_id = f"FIND-{res_name[:6].upper()}-{f_rule_id}"
 
             # Check existing finding in DB
-            existing_finding = Finding.query.filter_by(finding_id=finding_unique_id).first()
+            existing_finding = Finding.query.filter_by(
+                finding_id=finding_unique_id, owner_id=owner_id
+            ).first()
             if not existing_finding:
                 existing_finding = Finding(
                     finding_id=finding_unique_id,
+                    owner_id=owner_id,
                     resource_id=res_id,
                     title=df['title'],
                     description=df['description'],
@@ -297,6 +316,7 @@ def run_security_scan(demo_mode=True, region_name=None):
                 if df['severity'] in ['CRITICAL', 'HIGH']:
                     alert = Alert(
                         finding_id=existing_finding.id,
+                        owner_id=owner_id,
                         message=f"[{df['severity']}] {df['title']} detected on {res_name}",
                         severity=df['severity'],
                         created_at=started_at,
@@ -315,7 +335,9 @@ def run_security_scan(demo_mode=True, region_name=None):
         # Any existing Open/Investigating finding for this resource whose rule
         # was NOT triggered in this scan means the misconfiguration is now fixed
         # in AWS → automatically mark it Resolved.
-        existing_resource_findings = Finding.query.filter_by(resource_id=res_id).all()
+        existing_resource_findings = Finding.query.filter_by(
+            resource_id=res_id, owner_id=owner_id
+        ).all()
         triggered_finding_ids = {
             f"FIND-{res_name[:6].upper()}-{rule_id}" for rule_id in triggered_rule_ids
         }
@@ -338,13 +360,15 @@ def run_security_scan(demo_mode=True, region_name=None):
     # delete it and its findings so deleted cloud assets don't remain in the dashboard.
     if not demo_mode and not error_msg:
         active_resource_ids = {item['resource_id'] for item in raw_resources}
-        all_db_resources = Resource.query.all()
+        all_db_resources = Resource.query.filter_by(owner_id=owner_id).all()
         for r_db in all_db_resources:
             if r_db.resource_id not in active_resource_ids:
                 # S3 and IAM are global/account-wide; EC2/SG/RDS are region scoped
                 if r_db.resource_type in ('S3', 'IAM') or r_db.region == target_region or r_db.region == 'global':
                     logger.info(f"Removing deleted AWS resource from DB: {r_db.resource_name} ({r_db.resource_id})")
-                    db_findings = Finding.query.filter_by(resource_id=r_db.resource_id).all()
+                    db_findings = Finding.query.filter_by(
+                        resource_id=r_db.resource_id, owner_id=owner_id
+                    ).all()
                     for df in db_findings:
                         Alert.query.filter_by(finding_id=df.id).delete()
                         db.session.delete(df)
@@ -354,7 +378,7 @@ def run_security_scan(demo_mode=True, region_name=None):
     db.session.commit()
 
     # Query all current active findings from database for complete system score calculation
-    active_db_findings = Finding.query.all()
+    active_db_findings = Finding.query.filter_by(owner_id=owner_id).all()
     overall_score = calculate_security_score(active_db_findings)
 
 
@@ -362,6 +386,7 @@ def run_security_scan(demo_mode=True, region_name=None):
     completed_at = datetime.utcnow()
     scan_record = Scan(
         scan_id=scan_id,
+        owner_id=owner_id,
         started_at=started_at,
         completed_at=completed_at,
         resources_scanned=scanned_resources_count,

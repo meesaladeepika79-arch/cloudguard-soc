@@ -9,7 +9,7 @@ import os
 
 logger = logging.getLogger(__name__)
 
-def discover_aws_resources(region_name=None):
+def discover_aws_resources(region_name=None, access_key_id=None, secret_access_key=None, session_token=None):
     """
     Discovers AWS resources across S3, EC2, IAM, Security Groups, and RDS using Boto3.
     Returns (resources_list, error_message)
@@ -23,13 +23,21 @@ def discover_aws_resources(region_name=None):
     except ImportError:
         return [], "boto3 library is not installed. Please install boto3 to use real AWS scanning."
 
+    credentials = {
+        key: value for key, value in {
+            'aws_access_key_id': access_key_id,
+            'aws_secret_access_key': secret_access_key,
+            'aws_session_token': session_token
+        }.items() if value
+    }
+
     # Prevent long hanging calls if network or AWS service is unresponsive
     client_cfg = BotoClientConfig(connect_timeout=5, read_timeout=5, retries={'max_attempts': 2})
     resources = []
     
     # 1. Discover S3 Buckets
     try:
-        s3_client = boto3.client('s3', region_name=region_name, config=client_cfg)
+        s3_client = boto3.client('s3', region_name=region_name, config=client_cfg, **credentials)
         buckets_resp = s3_client.list_buckets()
         for bucket in buckets_resp.get('Buckets', []):
             b_name = bucket['Name']
@@ -85,7 +93,7 @@ def discover_aws_resources(region_name=None):
 
     # 2. Discover EC2 Instances
     try:
-        ec2_client = boto3.client('ec2', region_name=region_name, config=client_cfg)
+        ec2_client = boto3.client('ec2', region_name=region_name, config=client_cfg, **credentials)
         resv = ec2_client.describe_instances()
         for r in resv.get('Reservations', []):
             for inst in r.get('Instances', []):
@@ -114,7 +122,7 @@ def discover_aws_resources(region_name=None):
 
     # 3. Discover IAM Users
     try:
-        iam_client = boto3.client('iam', region_name=region_name, config=client_cfg)
+        iam_client = boto3.client('iam', region_name=region_name, config=client_cfg, **credentials)
         users = iam_client.list_users().get('Users', [])
         for u in users:
             uname = u['UserName']
@@ -147,7 +155,7 @@ def discover_aws_resources(region_name=None):
 
     # 4. Discover Security Groups
     try:
-        ec2_client = boto3.client('ec2', region_name=region_name, config=client_cfg)
+        ec2_client = boto3.client('ec2', region_name=region_name, config=client_cfg, **credentials)
         sgs = ec2_client.describe_security_groups().get('SecurityGroups', [])
         for sg in sgs:
             sg_id = sg['GroupId']
@@ -180,7 +188,7 @@ def discover_aws_resources(region_name=None):
 
     # 5. Discover RDS Instances
     try:
-        rds_client = boto3.client('rds', region_name=region_name, config=client_cfg)
+        rds_client = boto3.client('rds', region_name=region_name, config=client_cfg, **credentials)
         dbs = rds_client.describe_db_instances().get('DBInstances', [])
         for db_inst in dbs:
             db_id = db_inst['DBInstanceIdentifier']

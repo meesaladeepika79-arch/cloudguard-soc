@@ -3,7 +3,7 @@ Dashboard Blueprint
 Provides primary SOC security dashboard rendering and analytical statistics API.
 """
 
-from flask import Blueprint, render_template, jsonify
+from flask import Blueprint, render_template, jsonify, session
 from routes.auth import login_required
 from models.database_models import Resource, Finding, Scan, Alert
 from security.risk_engine import calculate_security_score, get_score_category, summarize_findings_by_severity
@@ -21,10 +21,11 @@ def index():
 @login_required
 def get_dashboard_stats():
     """Returns real-time aggregated metric values and chart datasets."""
-    resources = Resource.query.all()
-    findings = Finding.query.all()
-    recent_scans = Scan.query.order_by(Scan.started_at.desc()).limit(5).all()
-    recent_alerts = Alert.query.order_by(Alert.created_at.desc()).limit(5).all()
+    owner_id = session['user_id']
+    resources = Resource.query.filter_by(owner_id=owner_id).all()
+    findings = Finding.query.filter_by(owner_id=owner_id).all()
+    recent_scans = Scan.query.filter_by(owner_id=owner_id).order_by(Scan.started_at.desc()).limit(5).all()
+    recent_alerts = Alert.query.filter_by(owner_id=owner_id).order_by(Alert.created_at.desc()).limit(5).all()
 
     # Severity distribution
     severity_counts = summarize_findings_by_severity(findings)
@@ -41,7 +42,7 @@ def get_dashboard_stats():
             issues_by_type[res_type] = issues_by_type.get(res_type, 0) + 1
 
     # Security score trend history from scan logs
-    historical_scans = Scan.query.order_by(Scan.started_at.asc()).limit(10).all()
+    historical_scans = Scan.query.filter_by(owner_id=owner_id).order_by(Scan.started_at.asc()).limit(10).all()
     score_history_labels = [s.started_at.strftime('%m/%d %H:%M') for s in historical_scans] if historical_scans else ['Initial']
     score_history_data = [s.security_score for s in historical_scans] if historical_scans else [score]
 
@@ -87,6 +88,7 @@ def get_top_problems():
     severity_order = {'CRITICAL': 0, 'HIGH': 1, 'MEDIUM': 2, 'LOW': 3}
 
     findings = Finding.query.filter(
+        Finding.owner_id == session['user_id'],
         Finding.status.in_(['Open', 'Investigating'])
     ).all()
 

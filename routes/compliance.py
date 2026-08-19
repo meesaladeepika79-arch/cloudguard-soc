@@ -3,7 +3,7 @@ Compliance Center Blueprint
 Evaluates cloud security posture against regulatory standards (CIS, NIST, PCI-DSS, HIPAA, ISO 27001).
 """
 
-from flask import Blueprint, render_template, jsonify
+from flask import Blueprint, render_template, jsonify, session
 from routes.auth import login_required
 from models.database_models import Finding
 from security.compliance import evaluate_compliance_posture, COMPLIANCE_FRAMEWORKS
@@ -19,7 +19,7 @@ def index():
 @compliance_bp.route('/api/compliance')
 @login_required
 def get_compliance_stats():
-    findings = Finding.query.all()
+    findings = Finding.query.filter_by(owner_id=session['user_id']).all()
     evaluations = evaluate_compliance_posture(findings)
     return jsonify({
         'frameworks': evaluations,

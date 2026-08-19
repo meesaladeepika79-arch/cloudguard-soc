@@ -4,7 +4,7 @@ Renders formal executive cloud security posture audit reports with print support
 """
 
 from datetime import datetime
-from flask import Blueprint, render_template
+from flask import Blueprint, render_template, session
 from routes.auth import login_required
 from models.database_models import Resource, Finding, Scan
 from security.risk_engine import calculate_security_score, get_score_category, summarize_findings_by_severity
@@ -14,9 +14,10 @@ reports_bp = Blueprint('reports', __name__)
 @reports_bp.route('/reports')
 @login_required
 def index():
-    resources = Resource.query.all()
-    findings = Finding.query.all()
-    latest_scan = Scan.query.order_by(Scan.started_at.desc()).first()
+    owner_id = session['user_id']
+    resources = Resource.query.filter_by(owner_id=owner_id).all()
+    findings = Finding.query.filter_by(owner_id=owner_id).all()
+    latest_scan = Scan.query.filter_by(owner_id=owner_id).order_by(Scan.started_at.desc()).first()
 
     severity_counts = summarize_findings_by_severity(findings)
     score = calculate_security_score(findings)

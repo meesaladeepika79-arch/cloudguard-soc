@@ -319,7 +319,7 @@ function dashboardAutoFix(findingId, btn) {
     });
 }
 
-function triggerScanExecution(demoMode = false, region = null) {
+function triggerScanExecution(demoMode = false, region = null, credentials = {}) {
   const scanBtn = document.getElementById('btn-run-scan');
   const modalProgress = document.getElementById('scan-progress-box');
   
@@ -334,7 +334,7 @@ function triggerScanExecution(demoMode = false, region = null) {
   fetch('/api/scans/run', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ demo_mode: demoMode, region: region })
+    body: JSON.stringify({ demo_mode: demoMode, region: region, ...credentials })
   })
   .then(res => res.json())
   .then(data => {

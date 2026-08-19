@@ -1,6 +1,6 @@
 import threading
 import time
-from flask import Blueprint, render_template, jsonify, request, current_app
+from flask import Blueprint, render_template, jsonify, request, current_app, session
 from routes.auth import login_required
 from models.database_models import Scan, Finding
 from security.scanner import run_security_scan
@@ -40,9 +40,25 @@ def trigger_scan():
     data = request.get_json() or {}
     use_demo = data.get('demo_mode', current_app.config.get('DEMO_MODE', False))
     region = data.get('region', None)
+    access_key_id = (data.get('aws_access_key_id') or '').strip()
+    secret_access_key = (data.get('aws_secret_access_key') or '').strip()
+    session_token = (data.get('aws_session_token') or '').strip() or None
+
+    if not use_demo and (not access_key_id or not secret_access_key):
+        return jsonify({
+            'error': True,
+            'message': 'AWS Access Key ID and Secret Access Key are required for a real AWS scan.'
+        }), 400
     
     try:
-        result = run_security_scan(demo_mode=use_demo, region_name=region)
+        result = run_security_scan(
+            demo_mode=use_demo,
+            region_name=region,
+            owner_id=session['user_id'],
+            access_key_id=access_key_id or None,
+            secret_access_key=secret_access_key or None,
+            session_token=session_token
+        )
         return jsonify(result)
     except Exception as e:
         current_app.logger.exception(f"Scan execution failed: {e}")
@@ -58,7 +74,7 @@ def trigger_scan():
 @scans_bp.route('/api/scans/history')
 @login_required
 def get_scan_history():
-    scans = Scan.query.order_by(Scan.started_at.desc()).limit(20).all()
+    scans = Scan.query.filter_by(owner_id=session['user_id']).order_by(Scan.started_at.desc()).limit(20).all()
     return jsonify([s.to_dict() for s in scans])
 
 

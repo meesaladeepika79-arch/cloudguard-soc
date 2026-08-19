@@ -1,6 +1,6 @@
 import io
 import csv
-from flask import Blueprint, render_template, jsonify, request, Response
+from flask import Blueprint, render_template, jsonify, request, Response, session
 from routes.auth import login_required
 from models.database_models import db, Finding, Resource
 from security.risk_engine import calculate_security_score
@@ -19,7 +19,7 @@ def index():
 @findings_bp.route('/findings/<int:finding_id>')
 @login_required
 def view_details(finding_id):
-    finding = Finding.query.get_or_404(finding_id)
+    finding = Finding.query.filter_by(id=finding_id, owner_id=session['user_id']).first_or_404()
     compliance_mappings = get_finding_compliance_mappings(finding.finding_id)
     remediation_snippets = generate_remediation_code(finding)
     return render_template(
@@ -37,7 +37,7 @@ def get_findings():
     res_type = request.args.get('resource_type')
     status = request.args.get('status')
     
-    query = Finding.query
+    query = Finding.query.filter_by(owner_id=session['user_id'])
     if severity and severity != 'ALL':
         query = query.filter_by(severity=severity)
     if status and status != 'ALL':
@@ -61,18 +61,18 @@ def get_findings():
 @findings_bp.route('/api/findings/<int:finding_id>/autofix', methods=['POST'])
 @login_required
 def autofix_finding(finding_id):
-    finding = Finding.query.get_or_404(finding_id)
+    finding = Finding.query.filter_by(id=finding_id, owner_id=session['user_id']).first_or_404()
     success, message = execute_auto_remediation(finding)
     
     if success:
         finding.status = 'Resolved'
         if finding.resource_rel:
-            res_findings = Finding.query.filter_by(resource_id=finding.resource_id).all()
+            res_findings = Finding.query.filter_by(resource_id=finding.resource_id, owner_id=session['user_id']).all()
             finding.resource_rel.security_score = calculate_security_score(res_findings)
         
         db.session.commit()
         
-        all_findings = Finding.query.all()
+        all_findings = Finding.query.filter_by(owner_id=session['user_id']).all()
         new_overall_score = calculate_security_score(all_findings)
         
         # Dispatch webhook alert for remediation
@@ -94,7 +94,7 @@ def autofix_finding(finding_id):
 @findings_bp.route('/api/findings/<int:finding_id>/status', methods=['POST'])
 @login_required
 def update_status(finding_id):
-    finding = Finding.query.get_or_404(finding_id)
+    finding = Finding.query.filter_by(id=finding_id, owner_id=session['user_id']).first_or_404()
     data = request.get_json() or {}
     new_status = data.get('status')
 
@@ -106,13 +106,13 @@ def update_status(finding_id):
     
     # Recalculate affected resource security score
     if finding.resource_rel:
-        res_findings = Finding.query.filter_by(resource_id=finding.resource_id).all()
+        res_findings = Finding.query.filter_by(resource_id=finding.resource_id, owner_id=session['user_id']).all()
         finding.resource_rel.security_score = calculate_security_score(res_findings)
 
     db.session.commit()
 
     # Calculate overall updated cloud score
-    all_findings = Finding.query.all()
+    all_findings = Finding.query.filter_by(owner_id=session['user_id']).all()
     new_overall_score = calculate_security_score(all_findings)
 
     return jsonify({
@@ -125,7 +125,7 @@ def update_status(finding_id):
 @findings_bp.route('/api/findings/export/csv')
 @login_required
 def export_findings_csv():
-    findings = Finding.query.order_by(Finding.detected_at.desc()).all()
+    findings = Finding.query.filter_by(owner_id=session['user_id']).order_by(Finding.detected_at.desc()).all()
     
     output = io.StringIO()
     writer = csv.writer(output)

@@ -3,7 +3,7 @@ Cloud Resource Inventory Blueprint
 Manages cloud resource listing and configuration inspection.
 """
 
-from flask import Blueprint, render_template, jsonify, request
+from flask import Blueprint, render_template, jsonify, request, session
 from routes.auth import login_required
 from models.database_models import Resource
 
@@ -21,7 +21,7 @@ def get_resources():
     resource_type = request.args.get('type')
     status = request.args.get('status')
     
-    query = Resource.query
+    query = Resource.query.filter_by(owner_id=session['user_id'])
     if resource_type and resource_type != 'ALL':
         query = query.filter_by(resource_type=resource_type)
     if status and status != 'ALL':

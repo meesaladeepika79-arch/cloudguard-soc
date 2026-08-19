@@ -30,6 +30,7 @@ class Resource(db.Model):
     __tablename__ = 'resources'
 
     id = db.Column(db.Integer, primary_key=True)
+    owner_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)
     resource_id = db.Column(db.String(120), unique=True, nullable=False)
     resource_name = db.Column(db.String(120), nullable=False)
     resource_type = db.Column(db.String(50), nullable=False) # S3, EC2, IAM, Security Group, RDS
@@ -60,6 +61,7 @@ class Finding(db.Model):
     __tablename__ = 'findings'
 
     id = db.Column(db.Integer, primary_key=True)
+    owner_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)
     finding_id = db.Column(db.String(80), unique=True, nullable=False)
     resource_id = db.Column(db.String(120), db.ForeignKey('resources.resource_id'), nullable=False)
     title = db.Column(db.String(200), nullable=False)
@@ -94,6 +96,7 @@ class Scan(db.Model):
     __tablename__ = 'scans'
 
     id = db.Column(db.Integer, primary_key=True)
+    owner_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)
     scan_id = db.Column(db.String(80), unique=True, nullable=False)
     started_at = db.Column(db.DateTime, default=datetime.utcnow)
     completed_at = db.Column(db.DateTime, nullable=True)
@@ -124,6 +127,7 @@ class Alert(db.Model):
     __tablename__ = 'alerts'
 
     id = db.Column(db.Integer, primary_key=True)
+    owner_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)
     finding_id = db.Column(db.Integer, db.ForeignKey('findings.id'), nullable=False)
     message = db.Column(db.String(255), nullable=False)
     severity = db.Column(db.String(20), nullable=False)
