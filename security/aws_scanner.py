@@ -57,6 +57,15 @@ def discover_aws_resources(region_name=None):
             except ClientError:
                 encryption_enabled = False
 
+            # Inspect Versioning — actually call AWS API (was hardcoded False before)
+            versioning_enabled = False
+            try:
+                ver = s3_client.get_bucket_versioning(Bucket=b_name)
+                versioning_status = ver.get('Status', '')
+                versioning_enabled = (versioning_status == 'Enabled')
+            except ClientError:
+                versioning_enabled = False
+
             resources.append({
                 'resource_id': f"arn:aws:s3:::{b_name}",
                 'resource_name': b_name,
@@ -68,7 +77,7 @@ def discover_aws_resources(region_name=None):
                     'public_access_enabled': public_access,
                     'block_public_access': block_public,
                     'encryption_enabled': encryption_enabled,
-                    'versioning_enabled': False
+                    'versioning_enabled': versioning_enabled
                 }
             })
     except (BotoCoreError, ClientError, Exception) as e:
