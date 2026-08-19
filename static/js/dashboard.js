@@ -397,7 +397,7 @@ function showRoyalScanResultModal(data) {
   const modalBody = document.getElementById('royalScanModalBody');
   if (modalBody) {
     if (data.error) {
-      modalBody.innerHTML = `<div class="royal-alert-box alert-danger m-0 justify-content-center">${data.message || 'Security scan execution encountered an error.'}</div>`;
+      modalBody.innerHTML = `<div class="royal-alert-box alert-danger m-0 justify-content-center"><i class="fa-solid fa-circle-exclamation me-2"></i>${data.message || 'Security scan execution encountered an error.'}</div>`;
     } else {
       modalBody.innerHTML = `
         <div class="mb-3">

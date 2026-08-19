@@ -71,35 +71,38 @@ def trigger_scan():
     secret_access_key = (data.get('aws_secret_access_key') or '').strip()
     session_token = (data.get('aws_session_token') or '').strip() or None
 
-    if access_key_id or secret_access_key or session_token:
-        if not access_key_id or not secret_access_key:
-            return jsonify({
-                'error': True,
-                'message': 'Invalid AWS_ACCESS_KEY_ID or AWS_SECRET_ACCESS_KEY.'
-            }), 401
-    else:
+    if not (access_key_id and secret_access_key):
         access_key_id = connection.get('access_key_id')
         secret_access_key = connection.get('secret_access_key')
         session_token = connection.get('session_token')
 
-    if not access_key_id or not secret_access_key:
+    if not use_demo and (not access_key_id or not secret_access_key):
         return jsonify({
             'error': True,
             'message': 'AWS Access Key ID and Secret Access Key are required for a real AWS scan.'
         }), 400
 
-    credentials_valid, validation_error = validate_aws_credentials(
-        region, access_key_id, secret_access_key, session_token
-    )
-    if not credentials_valid:
-        return jsonify({'error': True, 'message': validation_error}), 401
+    credentials_changed = bool(data.get('aws_access_key_id') or data.get('aws_secret_access_key'))
+    if credentials_changed or not connection:
+        valid, validation_message = validate_aws_credentials(
+            region,
+            access_key_id,
+            secret_access_key,
+            session_token
+        )
+        if not valid:
+            return jsonify({
+                'error': True,
+                'message': validation_message
+            }), 401
 
-    aws_connections[user_id] = {
-        'access_key_id': access_key_id,
-        'secret_access_key': secret_access_key,
-        'session_token': session_token,
-        'region': region
-    }
+        aws_connections[user_id] = {
+            'access_key_id': access_key_id,
+            'secret_access_key': secret_access_key,
+            'session_token': session_token,
+            'region': region
+        }
+        connection = aws_connections[user_id]
     
     try:
         result = run_security_scan(
