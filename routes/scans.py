@@ -4,6 +4,7 @@ from flask import Blueprint, render_template, jsonify, request, current_app, ses
 from routes.auth import login_required
 from models.database_models import db, Scan, Finding, Resource, Alert
 from security.scanner import run_security_scan
+from security.aws_scanner import validate_aws_credentials
 from security.webhooks import dispatch_security_alert
 
 scans_bp = Blueprint('scans', __name__)
@@ -70,24 +71,35 @@ def trigger_scan():
     secret_access_key = (data.get('aws_secret_access_key') or '').strip()
     session_token = (data.get('aws_session_token') or '').strip() or None
 
-    if access_key_id and secret_access_key:
-        aws_connections[user_id] = {
-            'access_key_id': access_key_id,
-            'secret_access_key': secret_access_key,
-            'session_token': session_token,
-            'region': region
-        }
-        connection = aws_connections[user_id]
+    if access_key_id or secret_access_key or session_token:
+        if not access_key_id or not secret_access_key:
+            return jsonify({
+                'error': True,
+                'message': 'Invalid AWS_ACCESS_KEY_ID or AWS_SECRET_ACCESS_KEY.'
+            }), 401
     else:
         access_key_id = connection.get('access_key_id')
         secret_access_key = connection.get('secret_access_key')
         session_token = connection.get('session_token')
 
-    if not use_demo and (not access_key_id or not secret_access_key):
+    if not access_key_id or not secret_access_key:
         return jsonify({
             'error': True,
             'message': 'AWS Access Key ID and Secret Access Key are required for a real AWS scan.'
         }), 400
+
+    credentials_valid, validation_error = validate_aws_credentials(
+        region, access_key_id, secret_access_key, session_token
+    )
+    if not credentials_valid:
+        return jsonify({'error': True, 'message': validation_error}), 401
+
+    aws_connections[user_id] = {
+        'access_key_id': access_key_id,
+        'secret_access_key': secret_access_key,
+        'session_token': session_token,
+        'region': region
+    }
     
     try:
         result = run_security_scan(

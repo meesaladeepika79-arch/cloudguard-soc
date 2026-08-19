@@ -9,6 +9,33 @@ import os
 
 logger = logging.getLogger(__name__)
 
+INVALID_AWS_CREDENTIALS_MESSAGE = "Invalid AWS_ACCESS_KEY_ID or AWS_SECRET_ACCESS_KEY."
+
+def validate_aws_credentials(region_name, access_key_id, secret_access_key, session_token=None):
+    """Validate supplied AWS credentials with STS before scanning."""
+    try:
+        import boto3
+        from botocore.config import Config as BotoClientConfig
+        from botocore.exceptions import BotoCoreError, ClientError
+    except ImportError:
+        return False, "boto3 library is not installed. Please install boto3 to use real AWS scanning."
+
+    try:
+        credentials = {
+            key: value for key, value in {
+                'aws_access_key_id': access_key_id,
+                'aws_secret_access_key': secret_access_key,
+                'aws_session_token': session_token
+            }.items() if value
+        }
+        client_cfg = BotoClientConfig(connect_timeout=5, read_timeout=5, retries={'max_attempts': 2})
+        sts_client = boto3.client('sts', region_name=region_name, config=client_cfg, **credentials)
+        sts_client.get_caller_identity()
+        return True, None
+    except (BotoCoreError, ClientError, Exception) as error:
+        logger.warning("AWS credential validation failed: %s", error)
+        return False, INVALID_AWS_CREDENTIALS_MESSAGE
+
 def discover_aws_resources(region_name=None, access_key_id=None, secret_access_key=None, session_token=None):
     """
     Discovers AWS resources across S3, EC2, IAM, Security Groups, and RDS using Boto3.
@@ -30,6 +57,12 @@ def discover_aws_resources(region_name=None, access_key_id=None, secret_access_k
             'aws_session_token': session_token
         }.items() if value
     }
+
+    credentials_valid, validation_error = validate_aws_credentials(
+        region_name, access_key_id, secret_access_key, session_token
+    )
+    if not credentials_valid:
+        return [], validation_error
 
     # Prevent long hanging calls if network or AWS service is unresponsive
     client_cfg = BotoClientConfig(connect_timeout=5, read_timeout=5, retries={'max_attempts': 2})
