@@ -47,6 +47,8 @@ def login():
 
 @auth_bp.route('/logout')
 def logout():
+    from routes.scans import aws_connections
+    aws_connections.pop(session.get('user_id'), None)
     session.clear()
     flash('You have been logged out successfully.', 'info')
     return redirect(url_for('auth.login'))

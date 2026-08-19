@@ -10,15 +10,51 @@
     <p class="text-dim small mb-0">Real-time misconfiguration evaluation, compliance scoring & automated response</p>
   </div>
   <div class="d-flex gap-2 flex-wrap">
-    <button onclick="openAttackPathModal()" class="btn btn-outline-info btn-sm px-3">
-      <i class="fa-solid fa-route me-1"></i> Threat Attack Path
-    </button>
     <a href="{{ url_for('compliance.index') }}" class="btn btn-outline-warning btn-sm px-3">
-      <i class="fa-solid fa-shield-check me-1"></i> Compliance
+      <i class="fa-solid fa-shield-halved me-1"></i> Compliance
     </a>
-    <button id="btn-run-scan" onclick="triggerScanExecution(false)" class="btn royal-scan-btn">
+    <button id="btn-run-scan" onclick="startDashboardScan()" class="btn royal-scan-btn">
       <i class="fa-solid fa-play me-2"></i> Start Security Scan
     </button>
+  </div>
+</div>
+
+<div class="soc-card mb-4">
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+      <h5 class="fw-bold mb-1 royal-heading"><i class="fa-solid fa-cloud-arrow-down me-2 text-cyan"></i> AWS Account Connection</h5>
+      <p class="text-dim small mb-0">Connect an AWS read-only account. Every scan refreshes the resources currently present in that account.</p>
+    </div>
+    <span id="aws-connection-status" class="badge bg-secondary">Not connected</span>
+  </div>
+  <div class="row g-3">
+    <div class="col-12 col-lg-6">
+      <label class="small text-gold fw-bold text-uppercase mb-1" for="dashboard-aws-access-key-id">AWS Access Key ID</label>
+      <input type="text" id="dashboard-aws-access-key-id" class="form-control form-control-dark" autocomplete="off" placeholder="AKIA...">
+    </div>
+    <div class="col-12 col-lg-6">
+      <label class="small text-gold fw-bold text-uppercase mb-1" for="dashboard-aws-secret-access-key">AWS Secret Access Key</label>
+      <input type="password" id="dashboard-aws-secret-access-key" class="form-control form-control-dark" autocomplete="new-password" placeholder="Enter secret access key">
+    </div>
+    <div class="col-12 col-lg-6">
+      <label class="small text-gold fw-bold text-uppercase mb-1" for="dashboard-aws-session-token">AWS Session Token <span class="text-muted fw-normal">(optional)</span></label>
+      <input type="password" id="dashboard-aws-session-token" class="form-control form-control-dark" autocomplete="new-password" placeholder="For temporary credentials only">
+    </div>
+    <div class="col-12 col-lg-6">
+      <label class="small text-gold fw-bold text-uppercase mb-1" for="dashboard-aws-region">AWS Region</label>
+      <select id="dashboard-aws-region" class="form-select form-select-dark">
+        <option value="us-east-1">US East (N. Virginia) - us-east-1</option>
+        <option value="us-west-2">US West (Oregon) - us-west-2</option>
+        <option value="ap-south-1">Asia Pacific (Mumbai) - ap-south-1</option>
+        <option value="eu-west-1">Europe (Ireland) - eu-west-1</option>
+        <option value="ap-southeast-1">Asia Pacific (Singapore) - ap-southeast-1</option>
+      </select>
+    </div>
+  </div>
+  <div class="d-flex gap-2 mt-3 flex-wrap">
+    <button type="button" class="btn royal-user-btn" onclick="saveAwsConnectionAndScan()"><i class="fa-solid fa-link me-1"></i> Connect & Scan AWS</button>
+    <button type="button" class="btn btn-outline-danger" onclick="disconnectAwsAccount()"><i class="fa-solid fa-link-slash me-1"></i> Disconnect</button>
+    <span class="small text-dim align-self-center">Credentials are held in server memory only and are cleared when you log out.</span>
   </div>
 </div>
 
@@ -235,93 +271,51 @@
   </div>
 </div>
 
-<!-- ===== ATTACK PATH VISUALIZER MODAL ===== -->
-<div class="modal fade" id="attackPathModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-xl modal-dialog-centered">
-    <div class="modal-content royal-modal p-3">
-      <div class="modal-header border-bottom border-secondary pb-2">
-        <h4 class="modal-title royal-heading"><i class="fa-solid fa-route text-danger me-2"></i> Cloud Threat Attack Path Visualizer</h4>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body py-4">
-        <p class="text-dim small mb-4">
-          Simulated adversary kill-chain modeling: Shows how misconfigured entrypoints allow lateral movement and data exfiltration inside your cloud perimeter.
-        </p>
-
-        <!-- Threat Vector Flow Container -->
-        <div class="row g-3 text-center align-items-center">
-          <!-- Step 1: Adversary -->
-          <div class="col-12 col-md-2">
-            <div class="p-3 rounded" style="background: rgba(239,68,68,0.15); border: 2px solid #ef4444;">
-              <i class="fa-solid fa-user-ninja fa-2x text-danger mb-2"></i>
-              <div class="fw-bold text-danger small">1. Adversary</div>
-              <div class="small text-dim font-mono">0.0.0.0/0 (Internet)</div>
-            </div>
-          </div>
-
-          <div class="col-12 col-md-1 text-center d-none d-md-block">
-            <i class="fa-solid fa-arrow-right fa-2x text-danger"></i>
-          </div>
-
-          <!-- Step 2: Open Ingress -->
-          <div class="col-12 col-md-2">
-            <div class="p-3 rounded" style="background: rgba(249,115,22,0.15); border: 2px solid #f97316;">
-              <i class="fa-solid fa-shield-halved fa-2x text-warning mb-2"></i>
-              <div class="fw-bold text-warning small">2. Open Ingress</div>
-              <div class="small text-dim font-mono">SG Port 22 / 3306</div>
-            </div>
-          </div>
-
-          <div class="col-12 col-md-1 text-center d-none d-md-block">
-            <i class="fa-solid fa-arrow-right fa-2x text-warning"></i>
-          </div>
-
-          <!-- Step 3: Compute Compromise -->
-          <div class="col-12 col-md-2">
-            <div class="p-3 rounded" style="background: rgba(234,179,8,0.15); border: 2px solid #eab308;">
-              <i class="fa-solid fa-server fa-2x text-warning mb-2"></i>
-              <div class="fw-bold text-warning small">3. EC2 Instance</div>
-              <div class="small text-dim font-mono">Public IP Node</div>
-            </div>
-          </div>
-
-          <div class="col-12 col-md-1 text-center d-none d-md-block">
-            <i class="fa-solid fa-arrow-right fa-2x text-warning"></i>
-          </div>
-
-          <!-- Step 4: Exfiltration Target -->
-          <div class="col-12 col-md-3">
-            <div class="p-3 rounded" style="background: rgba(239,68,68,0.25); border: 2px dashed #ef4444; box-shadow: 0 0 25px rgba(239,68,68,0.3);">
-              <i class="fa-solid fa-database fa-2x text-danger mb-2"></i>
-              <div class="fw-bold text-danger small">4. Target Assets Exfiltration</div>
-              <div class="small text-light font-mono">S3 Data Bucket / RDS DB</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="mt-4 p-3 rounded" style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);">
-          <h6 class="text-gold small fw-bold text-uppercase mb-2"><i class="fa-solid fa-shield-virus me-1"></i> Defensive Mitigation Recommendation</h6>
-          <p class="small text-light mb-0">
-            Applying <strong>1-Click Auto-Remediation</strong> revokes open perimeter ports and places S3 Public Access Blocks, breaking the attack chain at Step 2 and preventing adversary entry.
-          </p>
-        </div>
-      </div>
-      <div class="modal-footer border-0 justify-content-end">
-        <button type="button" class="btn royal-user-btn" data-bs-dismiss="modal">Close Threat Graph</button>
-      </div>
-    </div>
-  </div>
-</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-function openAttackPathModal() {
-  const modalEl = document.getElementById('attackPathModal');
-  if (modalEl) {
-    const bsModal = new bootstrap.Modal(modalEl);
-    bsModal.show();
-  }
+document.addEventListener('DOMContentLoaded', () => {
+  loadAwsConnectionStatus();
+});
+
+function startDashboardScan() {
+  const credentials = {
+    aws_access_key_id: document.getElementById('dashboard-aws-access-key-id').value.trim(),
+    aws_secret_access_key: document.getElementById('dashboard-aws-secret-access-key').value.trim(),
+    aws_session_token: document.getElementById('dashboard-aws-session-token').value.trim()
+  };
+  triggerScanExecution(false, document.getElementById('dashboard-aws-region').value, credentials);
+}
+
+function saveAwsConnectionAndScan() {
+  const credentials = {
+    aws_access_key_id: document.getElementById('dashboard-aws-access-key-id').value.trim(),
+    aws_secret_access_key: document.getElementById('dashboard-aws-secret-access-key').value.trim(),
+    aws_session_token: document.getElementById('dashboard-aws-session-token').value.trim()
+  };
+  triggerScanExecution(false, document.getElementById('dashboard-aws-region').value, credentials);
+}
+
+function loadAwsConnectionStatus() {
+  fetch('/api/aws-connection').then(res => res.json()).then(data => {
+    const status = document.getElementById('aws-connection-status');
+    if (data.connected) {
+      status.className = 'badge bg-success';
+      status.innerText = `Connected (${data.region})`;
+      document.getElementById('dashboard-aws-region').value = data.region || 'us-east-1';
+    }
+  });
+}
+
+function disconnectAwsAccount() {
+  fetch('/api/aws-connection', { method: 'DELETE' }).then(() => {
+    document.getElementById('aws-connection-status').className = 'badge bg-secondary';
+    document.getElementById('aws-connection-status').innerText = 'Not connected';
+    document.getElementById('dashboard-aws-access-key-id').value = '';
+    document.getElementById('dashboard-aws-secret-access-key').value = '';
+    document.getElementById('dashboard-aws-session-token').value = '';
+  });
 }
 </script>
 {% endblock %}

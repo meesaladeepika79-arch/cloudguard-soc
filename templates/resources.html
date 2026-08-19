@@ -8,7 +8,7 @@
     <h4 class="fw-bold mb-1">Discovered Cloud Resources</h4>
     <p class="text-muted small mb-0">Discovered S3 Buckets, EC2 Instances, IAM Identities, Security Groups & RDS DBs</p>
   </div>
-  <button onclick="triggerScanExecution(false)" class="btn royal-user-btn btn-sm">
+  <button onclick="rescanAwsResources(this)" class="btn royal-user-btn btn-sm">
     <i class="fa-solid fa-arrows-rotate me-1"></i> Rescan Resources
   </button>
 </div>
@@ -160,6 +160,30 @@ function filterResources() {
     r.resource_id.toLowerCase().includes(query)
   );
   renderResources(filtered);
+}
+
+function rescanAwsResources(button) {
+  button.disabled = true;
+  button.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Refreshing AWS';
+  fetch('/api/scans/run', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ demo_mode: false })
+  })
+    .then(res => res.json())
+    .then(data => {
+      if (data.error) {
+        alert(data.message || 'AWS refresh failed. Connect an AWS account from the Dashboard.');
+        return;
+      }
+      loadResourcesTable();
+      if (typeof updateAlertBadge === 'function') updateAlertBadge();
+    })
+    .catch(() => alert('AWS refresh failed. Connect an AWS account from the Dashboard.'))
+    .finally(() => {
+      button.disabled = false;
+      button.innerHTML = '<i class="fa-solid fa-arrows-rotate me-1"></i> Rescan Resources';
+    });
 }
 </script>
 {% endblock %}

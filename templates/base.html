@@ -66,7 +66,7 @@
       </div>
       <div class="nav-item">
         <a href="{{ url_for('compliance.index') }}" class="nav-link {% if request.endpoint == 'compliance.index' %}active{% endif %}">
-          <i class="fa-solid fa-shield-check"></i>
+          <i class="fa-solid fa-shield-halved"></i>
           <span>Compliance</span>
           <span class="badge bg-info text-dark rounded-pill ms-auto small" style="font-size:0.68rem;">CIS/NIST</span>
         </a>
@@ -91,7 +91,7 @@
         <h5 class="mb-0 topbar-title">{% block page_title %}Cloud Security Operations Center{% endblock %}</h5>
         <span class="royal-status-badge">
           <span class="pulse-indicator me-1"></span>
-          {% if config.DEMO_MODE %}Demo Mode (Simulated Cloud){% else %}AWS Environment (Boto3){% endif %}
+          AWS Environment (Boto3)
         </span>
       </div>
 

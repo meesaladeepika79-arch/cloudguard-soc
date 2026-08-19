@@ -13,15 +13,29 @@ scheduler_state = {
     'active': False,
     'interval_minutes': 30,
     'last_run': None,
-    'thread': None
+    'thread': None,
+    'user_id': None
 }
 
-def background_monitor_worker(app, interval_minutes):
+# Secrets stay in server memory only and are scoped by the logged-in user.
+aws_connections = {}
+
+def get_aws_connection(user_id):
+    return aws_connections.get(user_id, {})
+
+def background_monitor_worker(app, interval_minutes, user_id):
     while scheduler_state['active']:
         try:
             with app.app_context():
-                use_demo = app.config.get('DEMO_MODE', False)
-                run_security_scan(demo_mode=use_demo)
+                connection = get_aws_connection(user_id)
+                run_security_scan(
+                    demo_mode=False,
+                    owner_id=user_id,
+                    region_name=connection.get('region'),
+                    access_key_id=connection.get('access_key_id'),
+                    secret_access_key=connection.get('secret_access_key'),
+                    session_token=connection.get('session_token')
+                )
                 scheduler_state['last_run'] = time.strftime('%Y-%m-%d %H:%M:%S')
         except Exception as e:
             app.logger.warning(f"Background scan iteration error: {e}")
@@ -38,11 +52,26 @@ def index():
 @login_required
 def trigger_scan():
     data = request.get_json() or {}
-    use_demo = data.get('demo_mode', current_app.config.get('DEMO_MODE', False))
-    region = data.get('region', None)
+    use_demo = False
+    user_id = session['user_id']
+    connection = get_aws_connection(user_id)
+    region = (data.get('region') or connection.get('region') or current_app.config.get('AWS_REGION')).strip()
     access_key_id = (data.get('aws_access_key_id') or '').strip()
     secret_access_key = (data.get('aws_secret_access_key') or '').strip()
     session_token = (data.get('aws_session_token') or '').strip() or None
+
+    if access_key_id and secret_access_key:
+        aws_connections[user_id] = {
+            'access_key_id': access_key_id,
+            'secret_access_key': secret_access_key,
+            'session_token': session_token,
+            'region': region
+        }
+        connection = aws_connections[user_id]
+    else:
+        access_key_id = connection.get('access_key_id')
+        secret_access_key = connection.get('secret_access_key')
+        session_token = connection.get('session_token')
 
     if not use_demo and (not access_key_id or not secret_access_key):
         return jsonify({
@@ -54,7 +83,7 @@ def trigger_scan():
         result = run_security_scan(
             demo_mode=use_demo,
             region_name=region,
-            owner_id=session['user_id'],
+            owner_id=user_id,
             access_key_id=access_key_id or None,
             secret_access_key=secret_access_key or None,
             session_token=session_token
@@ -69,6 +98,21 @@ def trigger_scan():
             'resources_scanned': 0,
             'security_score': 0
         }), 500
+
+
+@scans_bp.route('/api/aws-connection', methods=['GET', 'DELETE'])
+@login_required
+def manage_aws_connection():
+    user_id = session['user_id']
+    if request.method == 'DELETE':
+        aws_connections.pop(user_id, None)
+        return jsonify({'connected': False})
+
+    connection = get_aws_connection(user_id)
+    return jsonify({
+        'connected': bool(connection.get('access_key_id') and connection.get('secret_access_key')),
+        'region': connection.get('region')
+    })
 
 
 @scans_bp.route('/api/scans/history')
@@ -89,10 +133,15 @@ def manage_scheduler():
 
         scheduler_state['active'] = enable
         scheduler_state['interval_minutes'] = interval
+        scheduler_state['user_id'] = session['user_id'] if enable else None
 
         if enable and (scheduler_state['thread'] is None or not scheduler_state['thread'].is_alive()):
             app_obj = current_app._get_current_object()
-            t = threading.Thread(target=background_monitor_worker, args=(app_obj, interval), daemon=True)
+            t = threading.Thread(
+                target=background_monitor_worker,
+                args=(app_obj, interval, session['user_id']),
+                daemon=True
+            )
             scheduler_state['thread'] = t
             t.start()
 
