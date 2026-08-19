@@ -48,12 +48,13 @@ def create_app():
             db.session.commit()
             print("[+] Seeded default admin user: admin / admin123")
 
-        # Initial Scan Run if DB has no scan history (always seed initial demo data quickly)
-        scan_count = Scan.query.count()
-        if scan_count == 0:
-            print("[+] Database empty. Seeding initial demo scan and cloud resources...")
-            run_security_scan(demo_mode=True)
-            print("[+] Demo cloud environment initialized successfully.")
+        # Initial Scan Run if DB has no scan history and DEMO_MODE is True
+        if app.config.get('DEMO_MODE', False):
+            scan_count = Scan.query.count()
+            if scan_count == 0:
+                print("[+] Seeding initial demo scan and mock cloud resources...")
+                run_security_scan(demo_mode=True)
+                print("[+] Demo cloud environment initialized successfully.")
 
     return app
 

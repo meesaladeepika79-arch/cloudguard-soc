@@ -1,4 +1,4 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 
 {% block page_title %}Cloud Security Scanner Console & Automation{% endblock %}
 
@@ -41,9 +41,14 @@
         <div class="form-text text-dim small">Keep unchecked for <strong>Real-Time AWS Boto3 API Discovery</strong>. Check only if you wish to run simulated mock scans.</div>
       </div>
 
-      <button id="btn-run-scan" onclick="triggerScanFromConsole()" class="btn royal-scan-btn btn-lg w-100 py-3 shadow">
-        <i class="fa-solid fa-play me-2"></i> Execute Security Scan Now
-      </button>
+      <div class="d-flex gap-2">
+        <button id="btn-run-scan" onclick="triggerScanFromConsole()" class="btn royal-scan-btn btn-lg flex-grow-1 py-3 shadow">
+          <i class="fa-solid fa-play me-2"></i> Execute Security Scan Now
+        </button>
+        <button onclick="purgeDemoData()" class="btn btn-outline-danger btn-lg px-3 py-3 shadow" title="Wipe all simulated demo resources">
+          <i class="fa-solid fa-trash-can me-1"></i> Clear Demo Data
+        </button>
+      </div>
     </div>
   </div>
 
@@ -211,6 +216,19 @@ function testWebhook() {
     alert("Webhook Result: " + data.message);
   })
   .catch(err => alert("Webhook test failed: " + err));
+}
+
+function purgeDemoData() {
+  if (!confirm("Are you sure you want to completely remove all simulated demo resources and findings?")) {
+    return;
+  }
+  fetch('/api/scans/purge-demo', { method: 'POST' })
+    .then(res => res.json())
+    .then(data => {
+      alert(data.message || "Demo data cleared successfully.");
+      window.location.reload();
+    })
+    .catch(err => alert("Failed to clear demo data: " + err));
 }
 </script>
 {% endblock %}

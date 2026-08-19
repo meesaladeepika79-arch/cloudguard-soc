@@ -106,3 +106,12 @@ def test_webhook():
     success, msg = dispatch_security_alert(DummyFinding(), action="TEST_DISPATCH", custom_webhook_url=webhook_url)
     return jsonify({'success': success, 'message': msg})
 
+
+@scans_bp.route('/api/scans/purge-demo', methods=['POST'])
+@login_required
+def purge_demo():
+    from security.scanner import purge_all_demo_data
+    success, msg = purge_all_demo_data()
+    return jsonify({'success': success, 'message': msg})
+
+

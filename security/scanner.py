@@ -161,6 +161,40 @@ def get_demo_resources():
     ]
 
 
+DEMO_MOCK_RESOURCE_IDS = [
+    'arn:aws:s3:::production-data-bucket',
+    'arn:aws:s3:::finance-backups-2026',
+    'i-09f8723b12345678a',
+    'i-01a23b45c67890def',
+    'arn:aws:iam::123456789012:user/admin-user',
+    'arn:aws:iam::123456789012:user/sec-auditor-read',
+    'sg-0a1b2c3d4e5f67890',
+    'sg-9f8e7d6c5b4a3210',
+    'arn:aws:rds:us-east-1:123456789012:db:prod-mysql-db',
+    'arn:aws:rds:us-east-1:123456789012:db:analytics-postgres'
+]
+
+def purge_all_demo_data():
+    """Completely wipes all mock/simulated demo resources, findings, alerts, and demo scans."""
+    try:
+        for mock_id in DEMO_MOCK_RESOURCE_IDS:
+            findings = Finding.query.filter_by(resource_id=mock_id).all()
+            for f in findings:
+                Alert.query.filter_by(finding_id=f.id).delete()
+                db.session.delete(f)
+            Resource.query.filter_by(resource_id=mock_id).delete()
+
+        # Delete any demo scan entries from history
+        Scan.query.filter(Scan.scan_mode.like('%Demo%')).delete()
+        db.session.commit()
+        logger.info("Purged all simulated demo resources and findings successfully.")
+        return True, "Demo resources and findings removed."
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(f"Failed to purge demo data: {e}")
+        return False, str(e)
+
+
 def run_security_scan(demo_mode=True, region_name=None):
     """
     Executes an end-to-end security scan.
@@ -179,33 +213,14 @@ def run_security_scan(demo_mode=True, region_name=None):
     if demo_mode:
         raw_resources = get_demo_resources()
     else:
+        # Wipe out any residual demo/mock resources so only real AWS assets show
+        purge_all_demo_data()
+
         raw_resources, error_msg = discover_aws_resources(region_name=target_region)
         if error_msg:
-            # Fallback to demo mode if AWS connection fails
-            raw_resources = get_demo_resources()
-            scan_mode_str = "Demo (AWS Fallback)"
-        else:
-            # Clean up initial mock demo records when switching to real AWS account
-            demo_mock_ids = [
-                'arn:aws:s3:::production-data-bucket',
-                'arn:aws:s3:::finance-backups-2026',
-                'i-09f8723b12345678a',
-                'i-01a23b45c67890def',
-                'arn:aws:iam::123456789012:user/admin-user',
-                'arn:aws:iam::123456789012:user/sec-auditor-read',
-                'sg-0a1b2c3d4e5f67890',
-                'sg-9f8e7d6c5b4a3210',
-                'arn:aws:rds:us-east-1:123456789012:db:prod-mysql-db',
-                'arn:aws:rds:us-east-1:123456789012:db:analytics-postgres'
-            ]
-            try:
-                for mock_id in demo_mock_ids:
-                    Finding.query.filter_by(resource_id=mock_id).delete()
-                    Resource.query.filter_by(resource_id=mock_id).delete()
-                db.session.commit()
-            except Exception as e:
-                db.session.rollback()
-                logger.warning(f"Failed to purge mock data: {e}")
+            # Do NOT silently fallback to mock demo resources when user requested real AWS
+            raw_resources = []
+            scan_mode_str = "AWS (No Resources / Check Credentials)"
 
     scanned_resources_count = len(raw_resources)
     all_findings_objects = []
