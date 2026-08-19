@@ -285,12 +285,31 @@
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-  loadAwsConnectionStatus();
-  restoreAwsCredentials();
+  if (isWebsiteRefresh()) {
+    resetAwsSessionAfterRefresh();
+  } else {
+    loadAwsConnectionStatus();
+    restoreAwsCredentials();
+  }
   ['dashboard-aws-access-key-id', 'dashboard-aws-secret-access-key', 'dashboard-aws-session-token'].forEach(fieldId => {
     document.getElementById(fieldId).addEventListener('input', rememberAwsCredentialFields);
   });
 });
+
+function isWebsiteRefresh() {
+  const navigation = performance.getEntriesByType('navigation')[0];
+  return navigation && navigation.type === 'reload';
+}
+
+function resetAwsSessionAfterRefresh() {
+  sessionStorage.removeItem('cloudguard_aws_credentials');
+  fetch('/api/aws-connection', { method: 'DELETE' })
+    .finally(() => {
+      document.getElementById('aws-connection-status').className = 'badge bg-secondary';
+      document.getElementById('aws-connection-status').innerText = 'Not connected';
+      loadDashboardData();
+    });
+}
 
 function startDashboardScan() {
   const credentials = {
