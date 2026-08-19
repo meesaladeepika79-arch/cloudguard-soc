@@ -30,15 +30,24 @@
   <div class="row g-3">
     <div class="col-12 col-lg-6">
       <label class="small text-gold fw-bold text-uppercase mb-1" for="dashboard-aws-access-key-id">AWS Access Key ID</label>
-      <input type="text" id="dashboard-aws-access-key-id" class="form-control form-control-dark" autocomplete="off" placeholder="AKIA...">
+      <div class="input-group">
+        <input type="password" id="dashboard-aws-access-key-id" class="form-control form-control-dark" autocomplete="off" placeholder="Enter access key ID">
+        <button type="button" class="btn btn-outline-secondary" onclick="toggleAwsField('dashboard-aws-access-key-id', this)" title="Show or hide access key"><i class="fa-solid fa-eye"></i></button>
+      </div>
     </div>
     <div class="col-12 col-lg-6">
       <label class="small text-gold fw-bold text-uppercase mb-1" for="dashboard-aws-secret-access-key">AWS Secret Access Key</label>
-      <input type="password" id="dashboard-aws-secret-access-key" class="form-control form-control-dark" autocomplete="new-password" placeholder="Enter secret access key">
+      <div class="input-group">
+        <input type="password" id="dashboard-aws-secret-access-key" class="form-control form-control-dark" autocomplete="new-password" placeholder="Enter secret access key">
+        <button type="button" class="btn btn-outline-secondary" onclick="toggleAwsField('dashboard-aws-secret-access-key', this)" title="Show or hide secret key"><i class="fa-solid fa-eye"></i></button>
+      </div>
     </div>
     <div class="col-12 col-lg-6">
       <label class="small text-gold fw-bold text-uppercase mb-1" for="dashboard-aws-session-token">AWS Session Token <span class="text-muted fw-normal">(optional)</span></label>
-      <input type="password" id="dashboard-aws-session-token" class="form-control form-control-dark" autocomplete="new-password" placeholder="For temporary credentials only">
+      <div class="input-group">
+        <input type="password" id="dashboard-aws-session-token" class="form-control form-control-dark" autocomplete="new-password" placeholder="For temporary credentials only">
+        <button type="button" class="btn btn-outline-secondary" onclick="toggleAwsField('dashboard-aws-session-token', this)" title="Show or hide session token"><i class="fa-solid fa-eye"></i></button>
+      </div>
     </div>
     <div class="col-12 col-lg-6">
       <label class="small text-gold fw-bold text-uppercase mb-1" for="dashboard-aws-region">AWS Region</label>
@@ -285,7 +294,7 @@ function startDashboardScan() {
     aws_secret_access_key: document.getElementById('dashboard-aws-secret-access-key').value.trim(),
     aws_session_token: document.getElementById('dashboard-aws-session-token').value.trim()
   };
-  triggerScanExecution(false, document.getElementById('dashboard-aws-region').value, credentials);
+  triggerScanExecution(false, document.getElementById('dashboard-aws-region').value, credentials, () => clearAwsCredentialFields(true));
 }
 
 function saveAwsConnectionAndScan() {
@@ -294,7 +303,7 @@ function saveAwsConnectionAndScan() {
     aws_secret_access_key: document.getElementById('dashboard-aws-secret-access-key').value.trim(),
     aws_session_token: document.getElementById('dashboard-aws-session-token').value.trim()
   };
-  triggerScanExecution(false, document.getElementById('dashboard-aws-region').value, credentials);
+  triggerScanExecution(false, document.getElementById('dashboard-aws-region').value, credentials, () => clearAwsCredentialFields(true));
 }
 
 function loadAwsConnectionStatus() {
@@ -312,10 +321,33 @@ function disconnectAwsAccount() {
   fetch('/api/aws-connection', { method: 'DELETE' }).then(() => {
     document.getElementById('aws-connection-status').className = 'badge bg-secondary';
     document.getElementById('aws-connection-status').innerText = 'Not connected';
-    document.getElementById('dashboard-aws-access-key-id').value = '';
-    document.getElementById('dashboard-aws-secret-access-key').value = '';
-    document.getElementById('dashboard-aws-session-token').value = '';
+    clearAwsCredentialFields(false);
+    loadDashboardData();
   });
+}
+
+function toggleAwsField(fieldId, button) {
+  const field = document.getElementById(fieldId);
+  const icon = button.querySelector('i');
+  const isHidden = field.type === 'password';
+  field.type = isHidden ? 'text' : 'password';
+  icon.className = isHidden ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye';
+}
+
+function clearAwsCredentialFields(connected) {
+  ['dashboard-aws-access-key-id', 'dashboard-aws-secret-access-key', 'dashboard-aws-session-token'].forEach(fieldId => {
+    const field = document.getElementById(fieldId);
+    field.value = '';
+    field.type = 'password';
+  });
+  document.querySelectorAll('#dashboard-aws-access-key-id ~ button i, #dashboard-aws-secret-access-key ~ button i, #dashboard-aws-session-token ~ button i').forEach(icon => {
+    icon.className = 'fa-solid fa-eye';
+  });
+  const status = document.getElementById('aws-connection-status');
+  status.className = connected ? 'badge bg-success' : 'badge bg-secondary';
+  status.innerText = connected
+    ? `Connected (${document.getElementById('dashboard-aws-region').value})`
+    : 'Not connected';
 }
 </script>
 {% endblock %}

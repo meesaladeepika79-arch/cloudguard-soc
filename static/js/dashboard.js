@@ -319,7 +319,7 @@ function dashboardAutoFix(findingId, btn) {
     });
 }
 
-function triggerScanExecution(demoMode = false, region = null, credentials = {}) {
+function triggerScanExecution(demoMode = false, region = null, credentials = {}, onSuccess = null) {
   const scanBtn = document.getElementById('btn-run-scan');
   const modalProgress = document.getElementById('scan-progress-box');
   
@@ -347,6 +347,7 @@ function triggerScanExecution(demoMode = false, region = null, credentials = {})
     // Show Success Alert if scan was successful
     if (!data.error) {
       showSuccessToast();
+      if (onSuccess) onSuccess();
     }
 
     // Refresh Dashboard or Scans table if present

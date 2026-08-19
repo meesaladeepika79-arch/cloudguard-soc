@@ -2,7 +2,7 @@ import threading
 import time
 from flask import Blueprint, render_template, jsonify, request, current_app, session
 from routes.auth import login_required
-from models.database_models import Scan, Finding
+from models.database_models import db, Scan, Finding, Resource, Alert
 from security.scanner import run_security_scan
 from security.webhooks import dispatch_security_alert
 
@@ -22,6 +22,16 @@ aws_connections = {}
 
 def get_aws_connection(user_id):
     return aws_connections.get(user_id, {})
+
+def clear_user_scan_data(user_id):
+    """Remove all cloud data owned by a disconnected AWS account."""
+    findings = Finding.query.filter_by(owner_id=user_id).all()
+    for finding in findings:
+        Alert.query.filter_by(finding_id=finding.id, owner_id=user_id).delete()
+        db.session.delete(finding)
+    Resource.query.filter_by(owner_id=user_id).delete(synchronize_session=False)
+    Scan.query.filter_by(owner_id=user_id).delete(synchronize_session=False)
+    db.session.commit()
 
 def background_monitor_worker(app, interval_minutes, user_id):
     while scheduler_state['active']:
@@ -106,7 +116,8 @@ def manage_aws_connection():
     user_id = session['user_id']
     if request.method == 'DELETE':
         aws_connections.pop(user_id, None)
-        return jsonify({'connected': False})
+        clear_user_scan_data(user_id)
+        return jsonify({'connected': False, 'data_reset': True})
 
     connection = get_aws_connection(user_id)
     return jsonify({
