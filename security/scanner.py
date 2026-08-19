@@ -333,11 +333,30 @@ def run_security_scan(demo_mode=True, region_name=None):
         res_score = calculate_security_score(resource_findings_objs)
         resource_db.security_score = res_score
 
+    # ── PRUNE DELETED RESOURCES ──────────────────────────────────────────
+    # If a resource existed previously in DB but is no longer present in AWS discovery,
+    # delete it and its findings so deleted cloud assets don't remain in the dashboard.
+    if not demo_mode and not error_msg:
+        active_resource_ids = {item['resource_id'] for item in raw_resources}
+        all_db_resources = Resource.query.all()
+        for r_db in all_db_resources:
+            if r_db.resource_id not in active_resource_ids:
+                # S3 and IAM are global/account-wide; EC2/SG/RDS are region scoped
+                if r_db.resource_type in ('S3', 'IAM') or r_db.region == target_region or r_db.region == 'global':
+                    logger.info(f"Removing deleted AWS resource from DB: {r_db.resource_name} ({r_db.resource_id})")
+                    db_findings = Finding.query.filter_by(resource_id=r_db.resource_id).all()
+                    for df in db_findings:
+                        Alert.query.filter_by(finding_id=df.id).delete()
+                        db.session.delete(df)
+                    db.session.delete(r_db)
+    # ─────────────────────────────────────────────────────────────────────
+
     db.session.commit()
 
     # Query all current active findings from database for complete system score calculation
     active_db_findings = Finding.query.all()
     overall_score = calculate_security_score(active_db_findings)
+
 
     # Record Scan History entry
     completed_at = datetime.utcnow()
