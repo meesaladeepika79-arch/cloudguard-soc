@@ -1,4 +1,4 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 
 {% block page_title %}Security Posture Dashboard{% endblock %}
 
@@ -50,73 +50,87 @@
   <div class="col-12 col-xl-8">
     <div class="row g-3">
       <div class="col-6 col-md-4">
-        <div class="soc-card soc-card-interactive">
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <span class="kpi-title">TOTAL RESOURCES</span>
-            <div class="kpi-icon"><i class="fa-solid fa-server royal-gold-text"></i></div>
+        <a href="/resources" style="text-decoration: none;">
+          <div class="soc-card soc-card-interactive" style="cursor: pointer;" title="View all resources">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <span class="kpi-title">TOTAL RESOURCES</span>
+              <div class="kpi-icon"><i class="fa-solid fa-server royal-gold-text"></i></div>
+            </div>
+            <div class="kpi-value text-light" id="kpi-total-resources">--</div>
+            <div class="small text-dim mt-1">S3, EC2, IAM, SG, RDS <i class="fa-solid fa-arrow-right ms-1" style="font-size:0.7rem;"></i></div>
           </div>
-          <div class="kpi-value text-light" id="kpi-total-resources">--</div>
-          <div class="small text-dim mt-1">S3, EC2, IAM, SG, RDS</div>
-        </div>
+        </a>
+      </div>
+
+
+      <div class="col-6 col-md-4">
+        <a href="/findings" style="text-decoration: none;">
+          <div class="soc-card soc-card-interactive" style="cursor: pointer;" title="View all findings">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <span class="kpi-title">TOTAL ISSUES</span>
+              <div class="kpi-icon"><i class="fa-solid fa-bug text-warning"></i></div>
+            </div>
+            <div class="kpi-value text-warning" id="kpi-total-issues">--</div>
+            <div class="small text-dim mt-1">Open misconfigurations <i class="fa-solid fa-arrow-right ms-1" style="font-size:0.7rem;"></i></div>
+          </div>
+        </a>
       </div>
 
       <div class="col-6 col-md-4">
-        <div class="soc-card soc-card-interactive">
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <span class="kpi-title">TOTAL ISSUES</span>
-            <div class="kpi-icon"><i class="fa-solid fa-bug text-warning"></i></div>
+        <a href="/findings?severity=CRITICAL" style="text-decoration: none;">
+          <div class="soc-card soc-card-interactive" style="border-color: rgba(239, 68, 68, 0.6); cursor: pointer;" title="View critical findings">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <span class="kpi-title" style="color: #fca5a5;">CRITICAL ISSUES</span>
+              <div class="kpi-icon" style="border-color: rgba(239, 68, 68, 0.4);"><i class="fa-solid fa-radiation text-danger"></i></div>
+            </div>
+            <div class="kpi-value text-danger" id="kpi-critical">--</div>
+            <div class="small text-dim mt-1">Urgent remediation required <i class="fa-solid fa-arrow-right ms-1" style="font-size:0.7rem;"></i></div>
           </div>
-          <div class="kpi-value text-warning" id="kpi-total-issues">--</div>
-          <div class="small text-dim mt-1">Open misconfigurations</div>
-        </div>
+        </a>
       </div>
 
       <div class="col-6 col-md-4">
-        <div class="soc-card soc-card-interactive" style="border-color: rgba(239, 68, 68, 0.6);">
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <span class="kpi-title" style="color: #fca5a5;">CRITICAL ISSUES</span>
-            <div class="kpi-icon" style="border-color: rgba(239, 68, 68, 0.4);"><i class="fa-solid fa-radiation text-danger"></i></div>
+        <a href="/findings?severity=HIGH" style="text-decoration: none;">
+          <div class="soc-card soc-card-interactive" style="cursor: pointer;" title="View high risk findings">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <span class="kpi-title">HIGH-RISK ISSUES</span>
+              <div class="kpi-icon"><i class="fa-solid fa-triangle-exclamation" style="color: #f97316;"></i></div>
+            </div>
+            <div class="kpi-value" style="color: #f97316;" id="kpi-high">--</div>
+            <div class="small text-dim mt-1">High vulnerability level <i class="fa-solid fa-arrow-right ms-1" style="font-size:0.7rem;"></i></div>
           </div>
-          <div class="kpi-value text-danger" id="kpi-critical">--</div>
-          <div class="small text-dim mt-1">Urgent remediation required</div>
-        </div>
+        </a>
       </div>
 
       <div class="col-6 col-md-4">
-        <div class="soc-card soc-card-interactive">
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <span class="kpi-title">HIGH-RISK ISSUES</span>
-            <div class="kpi-icon"><i class="fa-solid fa-triangle-exclamation" style="color: #f97316;"></i></div>
+        <a href="/findings?severity=MEDIUM" style="text-decoration: none;">
+          <div class="soc-card soc-card-interactive" style="cursor: pointer;" title="View medium risk findings">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <span class="kpi-title">MEDIUM-RISK</span>
+              <div class="kpi-icon"><i class="fa-solid fa-circle-exclamation text-warning"></i></div>
+            </div>
+            <div class="kpi-value text-warning" id="kpi-medium">--</div>
+            <div class="small text-dim mt-1">Moderate risk level <i class="fa-solid fa-arrow-right ms-1" style="font-size:0.7rem;"></i></div>
           </div>
-          <div class="kpi-value" style="color: #f97316;" id="kpi-high">--</div>
-          <div class="small text-dim mt-1">High vulnerability level</div>
-        </div>
+        </a>
       </div>
 
       <div class="col-6 col-md-4">
-        <div class="soc-card soc-card-interactive">
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <span class="kpi-title">MEDIUM-RISK</span>
-            <div class="kpi-icon"><i class="fa-solid fa-circle-exclamation text-warning"></i></div>
+        <a href="/findings?severity=LOW" style="text-decoration: none;">
+          <div class="soc-card soc-card-interactive" style="cursor: pointer;" title="View low risk findings">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <span class="kpi-title">LOW-RISK</span>
+              <div class="kpi-icon"><i class="fa-solid fa-circle-info text-info"></i></div>
+            </div>
+            <div class="kpi-value text-info" id="kpi-low">--</div>
+            <div class="small text-dim mt-1">Low risk advisory <i class="fa-solid fa-arrow-right ms-1" style="font-size:0.7rem;"></i></div>
           </div>
-          <div class="kpi-value text-warning" id="kpi-medium">--</div>
-          <div class="small text-dim mt-1">Moderate risk level</div>
-        </div>
-      </div>
-
-      <div class="col-6 col-md-4">
-        <div class="soc-card soc-card-interactive">
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <span class="kpi-title">LOW-RISK</span>
-            <div class="kpi-icon"><i class="fa-solid fa-circle-info text-info"></i></div>
-          </div>
-          <div class="kpi-value text-info" id="kpi-low">--</div>
-          <div class="small text-dim mt-1">Low risk advisory</div>
-        </div>
+        </a>
       </div>
     </div>
   </div>
 </div>
+
 
 <!-- Analytics Charts Row -->
 <div class="row g-3 mb-4">

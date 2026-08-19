@@ -1,4 +1,4 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 
 {% block page_title %}Security Misconfiguration Findings{% endblock %}
 
@@ -113,6 +113,15 @@
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+  // Auto-apply severity filter if coming from a dashboard KPI card click
+  const urlParams = new URLSearchParams(window.location.search);
+  const severityParam = urlParams.get('severity');
+  if (severityParam) {
+    const severityFilter = document.getElementById('severity-filter');
+    if (severityFilter) {
+      severityFilter.value = severityParam;
+    }
+  }
   loadFindingsTable();
   loadSeveritySummary();
 });
