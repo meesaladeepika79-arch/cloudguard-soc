@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Cloud Security Monitoring Dashboard{% endblock %}</title>
+
+  <!-- Google Fonts for Modern SOC Theme -->
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- FontAwesome 6 Icons -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
+  <!-- Custom SOC Theme CSS -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+  {% block head %}{% endblock %}
+</head>
+<body>
+
+  {% if session.get('user_id') %}
+  <!-- Sidebar Navigation -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <i class="fa-solid fa-shield-halved royal-brand-icon"></i>
+      <span class="royal-brand-text">CloudGuard SOC</span>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-item">
+        <a href="{{ url_for('dashboard.index') }}" class="nav-link {% if request.endpoint == 'dashboard.index' %}active{% endif %}">
+          <i class="fa-solid fa-chart-line"></i>
+          <span>Dashboard</span>
+        </a>
+      </div>
+      <div class="nav-item">
+        <a href="{{ url_for('resources.index') }}" class="nav-link {% if request.endpoint == 'resources.index' %}active{% endif %}">
+          <i class="fa-solid fa-cloud"></i>
+          <span>Resources</span>
+        </a>
+      </div>
+      <div class="nav-item">
+        <a href="{{ url_for('findings.index') }}" class="nav-link {% if request.endpoint == 'findings.index' or request.endpoint == 'findings.view_details' %}active{% endif %}">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          <span>Security Findings</span>
+        </a>
+      </div>
+      <div class="nav-item">
+        <a href="{{ url_for('scans.index') }}" class="nav-link {% if request.endpoint == 'scans.index' %}active{% endif %}">
+          <i class="fa-solid fa-radar"></i>
+          <span>Scans</span>
+        </a>
+      </div>
+      <div class="nav-item">
+        <a href="{{ url_for('alerts.index') }}" class="nav-link {% if request.endpoint == 'alerts.index' %}active{% endif %}">
+          <i class="fa-solid fa-bell"></i>
+          <span>Alerts</span>
+          <span id="alert-count-badge" class="badge royal-badge-danger rounded-pill ms-auto d-none">0</span>
+        </a>
+      </div>
+      <div class="nav-item">
+        <a href="{{ url_for('reports.index') }}" class="nav-link {% if request.endpoint == 'reports.index' %}active{% endif %}">
+          <i class="fa-solid fa-file-contract"></i>
+          <span>Reports</span>
+        </a>
+      </div>
+      <div class="nav-item">
+        <a href="{{ url_for('compliance.index') }}" class="nav-link {% if request.endpoint == 'compliance.index' %}active{% endif %}">
+          <i class="fa-solid fa-shield-check"></i>
+          <span>Compliance</span>
+          <span class="badge bg-info text-dark rounded-pill ms-auto small" style="font-size:0.68rem;">CIS/NIST</span>
+        </a>
+      </div>
+
+      <hr class="mx-3 my-3 royal-hr">
+
+      <div class="nav-item">
+        <a href="{{ url_for('auth.logout') }}" class="nav-link nav-logout">
+          <i class="fa-solid fa-right-from-bracket"></i>
+          <span>Logout</span>
+        </a>
+      </div>
+    </nav>
+  </aside>
+
+  <!-- Main Wrapper -->
+  <div class="main-wrapper">
+    <!-- Topbar Header -->
+    <header class="topbar">
+      <div class="d-flex align-items-center gap-3">
+        <h5 class="mb-0 topbar-title">{% block page_title %}Cloud Security Operations Center{% endblock %}</h5>
+        <span class="royal-status-badge">
+          <span class="pulse-indicator me-1"></span>
+          {% if config.DEMO_MODE %}Demo Mode (Simulated Cloud){% else %}AWS Environment (Boto3){% endif %}
+        </span>
+      </div>
+
+      <div class="d-flex align-items-center gap-3">
+        <div class="dropdown">
+          <button class="btn royal-user-btn dropdown-toggle btn-sm" type="button" data-bs-toggle="dropdown">
+            <i class="fa-solid fa-user-shield me-1 royal-gold-text"></i> {{ session.get('username', 'Admin') }}
+          </button>
+          <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end royal-dropdown">
+            <li><a class="dropdown-item" href="{{ url_for('reports.index') }}"><i class="fa-solid fa-file me-2"></i> Audit Report</a></li>
+            <li><hr class="dropdown-divider royal-hr"></li>
+            <li><a class="dropdown-item text-danger" href="{{ url_for('auth.logout') }}"><i class="fa-solid fa-right-from-bracket me-2"></i> Logout</a></li>
+          </ul>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main View Container -->
+    <main class="p-4 flex-grow-1">
+      <!-- Flash Messages Container -->
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="royal-alert-box alert-{{ category }} alert-dismissible fade show mb-4" role="alert">
+              <i class="fa-solid fa-{% if category == 'danger' %}triangle-exclamation{% elif category == 'success' %}circle-check{% else %}circle-info{% endif %} me-2"></i>
+              <span>{{ message }}</span>
+              <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="p-3 text-center text-muted small border-top border-secondary bg-dark">
+      Cloud Security Monitoring Dashboard &copy; 2026 | MCA Cybersecurity Academic Project
+    </footer>
+  </div>
+  {% else %}
+    {% block login_content %}{% endblock %}
+  {% endif %}
+
+  <!-- Bootstrap 5 Bundle JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/bootstrap.bundle.min.js"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Custom Application Script -->
+  <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

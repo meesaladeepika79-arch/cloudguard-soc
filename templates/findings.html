@@ -1,0 +1,251 @@
+﻿{% extends "base.html" %}
+
+{% block page_title %}Security Misconfiguration Findings{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <div>
+    <h4 class="fw-bold mb-1 royal-heading">Detected Cloud Security Findings</h4>
+    <p class="text-dim small mb-0">Security rule evaluation results, compliance framework tags & 1-click remediation tracking</p>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="/api/findings/export/csv" class="btn btn-sm btn-outline-success">
+      <i class="fa-solid fa-file-csv me-1"></i> Export Auditor CSV
+    </a>
+  </div>
+</div>
+
+<!-- Severity Summary Cards -->
+<div class="row g-3 mb-4" id="severity-summary-cards">
+  <div class="col-6 col-md-3">
+    <div class="soc-card text-center" style="border-color: rgba(239,68,68,0.5); cursor:pointer;" onclick="document.getElementById('severity-filter').value='CRITICAL'; loadFindingsTable();">
+      <div class="small text-dim mb-1">CRITICAL</div>
+      <div class="fw-bold text-danger fs-3" id="sum-critical">--</div>
+      <div class="small text-dim">Urgent Remediation</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="soc-card text-center" style="border-color: rgba(249,115,22,0.5); cursor:pointer;" onclick="document.getElementById('severity-filter').value='HIGH'; loadFindingsTable();">
+      <div class="small text-dim mb-1">HIGH</div>
+      <div class="fw-bold fs-3" style="color:#f97316;" id="sum-high">--</div>
+      <div class="small text-dim">High Vulnerability</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="soc-card text-center" style="border-color: rgba(234,179,8,0.5); cursor:pointer;" onclick="document.getElementById('severity-filter').value='MEDIUM'; loadFindingsTable();">
+      <div class="small text-dim mb-1">MEDIUM</div>
+      <div class="fw-bold text-warning fs-3" id="sum-medium">--</div>
+      <div class="small text-dim">Moderate Risk</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="soc-card text-center" style="border-color: rgba(56,189,248,0.5); cursor:pointer;" onclick="document.getElementById('severity-filter').value='LOW'; loadFindingsTable();">
+      <div class="small text-dim mb-1">LOW</div>
+      <div class="fw-bold text-cyan fs-3" id="sum-low">--</div>
+      <div class="small text-dim">Advisory</div>
+    </div>
+  </div>
+</div>
+
+<!-- Filters Bar -->
+<div class="soc-card mb-4">
+  <div class="row g-3 align-items-center">
+    <div class="col-12 col-md-3">
+      <select id="severity-filter" onchange="loadFindingsTable()" class="form-select form-select-dark">
+        <option value="ALL">All Severities</option>
+        <option value="CRITICAL">CRITICAL</option>
+        <option value="HIGH">HIGH</option>
+        <option value="MEDIUM">MEDIUM</option>
+        <option value="LOW">LOW</option>
+      </select>
+    </div>
+
+    <div class="col-12 col-md-3">
+      <select id="resource-type-filter" onchange="loadFindingsTable()" class="form-select form-select-dark">
+        <option value="ALL">All Resource Types</option>
+        <option value="S3">S3</option>
+        <option value="EC2">EC2</option>
+        <option value="IAM">IAM</option>
+        <option value="Security Group">Security Group</option>
+        <option value="RDS">RDS</option>
+      </select>
+    </div>
+
+    <div class="col-12 col-md-3">
+      <select id="status-filter" onchange="loadFindingsTable()" class="form-select form-select-dark">
+        <option value="ALL">All Statuses</option>
+        <option value="Open" selected>Open</option>
+        <option value="Investigating">Investigating</option>
+        <option value="Resolved">Resolved</option>
+        <option value="Ignored">Ignored</option>
+      </select>
+    </div>
+
+    <div class="col-12 col-md-3">
+      <input type="text" id="finding-search" onkeyup="filterFindingsClient()" class="form-control form-control-dark" placeholder="Search title or ID...">
+    </div>
+  </div>
+</div>
+
+<!-- Findings Table -->
+<div class="soc-card">
+  <div class="table-responsive">
+    <table class="table table-dark-custom align-middle mb-0">
+      <thead>
+        <tr>
+          <th>Finding ID</th>
+          <th>Severity</th>
+          <th>Issue Title & Compliance</th>
+          <th>Affected Resource</th>
+          <th>Status</th>
+          <th>Detected At</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="findings-tbody">
+        <tr><td colspan="7" class="text-center text-dim py-4">Loading security findings...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  loadFindingsTable();
+  loadSeveritySummary();
+});
+
+let findingsCache = [];
+
+function loadSeveritySummary() {
+  fetch(`/api/findings?severity=ALL&resource_type=ALL&status=ALL`)
+    .then(res => res.json())
+    .then(all => {
+      const counts = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
+      all.forEach(f => { if (counts[f.severity] !== undefined) counts[f.severity]++; });
+      document.getElementById('sum-critical').innerText = counts.CRITICAL;
+      document.getElementById('sum-high').innerText     = counts.HIGH;
+      document.getElementById('sum-medium').innerText   = counts.MEDIUM;
+      document.getElementById('sum-low').innerText      = counts.LOW;
+    });
+}
+
+function loadFindingsTable() {
+  const sev = document.getElementById('severity-filter').value;
+  const resType = document.getElementById('resource-type-filter').value;
+  const status = document.getElementById('status-filter').value;
+
+  fetch(`/api/findings?severity=${sev}&resource_type=${resType}&status=${status}`)
+    .then(res => res.json())
+    .then(data => {
+      findingsCache = data;
+      renderFindings(data);
+    });
+}
+
+function renderFindings(findings) {
+  const tbody = document.getElementById('findings-tbody');
+
+  if (!findings || findings.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" class="text-center text-dim py-4">No security findings found.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = findings.map(f => {
+    const compliancePills = (f.compliance || []).slice(0, 2).map(c => 
+      `<span class="badge" style="background:${c.badge_color}20; border:1px solid ${c.badge_color}; color:#fff; font-size:0.7rem;">${c.framework_key}: ${c.control}</span>`
+    ).join(' ');
+
+    const isOpen = f.status === 'Open' || f.status === 'Investigating';
+
+    return `
+      <tr>
+        <td class="font-mono text-cyan small">${f.finding_id}</td>
+        <td>
+          <span class="badge ${getSeverityBadgeClass(f.severity)}">${f.severity}</span>
+        </td>
+        <td>
+          <div class="fw-semibold text-light">${f.title}</div>
+          <div class="small text-dim text-truncate mb-1" style="max-width: 300px;">${f.description}</div>
+          <div class="d-flex gap-1 flex-wrap">${compliancePills}</div>
+        </td>
+        <td>
+          <div class="fw-semibold text-cyan">${f.resource_name}</div>
+          <span class="badge bg-dark border border-secondary small text-light">${f.resource_type}</span>
+        </td>
+        <td>
+          <select onchange="updateFindingStatus(${f.id}, this.value)" class="form-select form-select-sm form-select-dark py-1">
+            <option value="Open" ${f.status === 'Open' ? 'selected' : ''}>Open</option>
+            <option value="Investigating" ${f.status === 'Investigating' ? 'selected' : ''}>Investigating</option>
+            <option value="Resolved" ${f.status === 'Resolved' ? 'selected' : ''}>Resolved</option>
+            <option value="Ignored" ${f.status === 'Ignored' ? 'selected' : ''}>Ignored</option>
+          </select>
+        </td>
+        <td><span class="small text-light font-mono">${f.detected_at}</span></td>
+        <td>
+          <div class="d-flex gap-1 align-items-center">
+            <a href="/findings/${f.id}" class="btn btn-sm btn-outline-info" title="View Threat Context & Remediation Code">
+              <i class="fa-solid fa-circle-info"></i>
+            </a>
+            ${isOpen ? `
+              <button onclick="inlineAutoFix(${f.id}, this)" class="btn btn-sm btn-warning" title="1-Click Auto-Fix">
+                <i class="fa-solid fa-bolt"></i> Auto-Fix
+              </button>
+            ` : ''}
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function inlineAutoFix(findingId, btn) {
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<span class="spinner-border spinner-border-sm"></span>`;
+  }
+
+  fetch(`/api/findings/${findingId}/autofix`, { method: 'POST' })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        alert("✓ Auto-Fix Complete!\n\n" + data.message + "\n\nUpdated Cloud Security Score: " + data.new_overall_score + "/100");
+        loadFindingsTable();
+        loadSeveritySummary();
+      } else {
+        alert("Auto-fix failed: " + (data.error || "Unknown error"));
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = `<i class="fa-solid fa-bolt"></i> Auto-Fix`;
+        }
+      }
+    })
+    .catch(err => {
+      alert("Request failed: " + err);
+      if (btn) btn.disabled = false;
+    });
+}
+
+function getSeverityBadgeClass(sev) {
+  switch(sev.toUpperCase()) {
+    case 'CRITICAL': return 'badge-critical';
+    case 'HIGH': return 'badge-high';
+    case 'MEDIUM': return 'badge-medium';
+    case 'LOW': return 'badge-low';
+    default: return 'badge-info';
+  }
+}
+
+function filterFindingsClient() {
+  const q = document.getElementById('finding-search').value.toLowerCase();
+  const filtered = findingsCache.filter(f => 
+    f.title.toLowerCase().includes(q) || 
+    f.finding_id.toLowerCase().includes(q) ||
+    f.resource_name.toLowerCase().includes(q)
+  );
+  renderFindings(filtered);
+}
+</script>
+{% endblock %}

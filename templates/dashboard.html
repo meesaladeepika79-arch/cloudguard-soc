@@ -1,0 +1,313 @@
+﻿{% extends "base.html" %}
+
+{% block page_title %}Security Posture Dashboard{% endblock %}
+
+{% block content %}
+<!-- Action Header -->
+<div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+  <div>
+    <h4 class="fw-bold mb-1 royal-heading">Cloud Infrastructure Health</h4>
+    <p class="text-dim small mb-0">Real-time misconfiguration evaluation, compliance scoring & automated response</p>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    <button onclick="openAttackPathModal()" class="btn btn-outline-info btn-sm px-3">
+      <i class="fa-solid fa-route me-1"></i> Threat Attack Path
+    </button>
+    <a href="{{ url_for('compliance.index') }}" class="btn btn-outline-warning btn-sm px-3">
+      <i class="fa-solid fa-shield-check me-1"></i> Compliance
+    </a>
+    <button id="btn-run-scan" onclick="triggerScanExecution(false)" class="btn royal-scan-btn">
+      <i class="fa-solid fa-play me-2"></i> Start Security Scan
+    </button>
+  </div>
+</div>
+
+<!-- Overall Security Score & KPI Grid -->
+<div class="row g-3 mb-4">
+  <!-- Security Score Banner Card -->
+  <div class="col-12 col-xl-4">
+    <div class="soc-card h-100 d-flex flex-column justify-content-between score-card-highlight">
+      <div class="d-flex justify-content-between align-items-center">
+        <span class="kpi-title">OVERALL SECURITY SCORE</span>
+        <span id="kpi-score-rating" class="badge badge-info">Calculating...</span>
+      </div>
+      
+      <div class="text-center my-3">
+        <div class="display-3 fw-bold royal-gold-text" id="kpi-score-val">--</div>
+        <div class="small text-dim">Out of 100 maximum risk index</div>
+      </div>
+
+      <!-- Score Progress Bar -->
+      <div>
+        <div class="progress bg-dark" style="height: 10px; border: 1px solid rgba(245, 158, 11, 0.4); border-radius: 6px; overflow: hidden;">
+          <div id="score-gauge-fill" class="progress-bar" role="progressbar" style="width: 0%; background: linear-gradient(90deg, #f59e0b, #fde047);"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPI Grid (Total, Critical, High, Medium, Low) -->
+  <div class="col-12 col-xl-8">
+    <div class="row g-3">
+      <div class="col-6 col-md-4">
+        <div class="soc-card soc-card-interactive">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="kpi-title">TOTAL RESOURCES</span>
+            <div class="kpi-icon"><i class="fa-solid fa-server royal-gold-text"></i></div>
+          </div>
+          <div class="kpi-value text-light" id="kpi-total-resources">--</div>
+          <div class="small text-dim mt-1">S3, EC2, IAM, SG, RDS</div>
+        </div>
+      </div>
+
+      <div class="col-6 col-md-4">
+        <div class="soc-card soc-card-interactive">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="kpi-title">TOTAL ISSUES</span>
+            <div class="kpi-icon"><i class="fa-solid fa-bug text-warning"></i></div>
+          </div>
+          <div class="kpi-value text-warning" id="kpi-total-issues">--</div>
+          <div class="small text-dim mt-1">Open misconfigurations</div>
+        </div>
+      </div>
+
+      <div class="col-6 col-md-4">
+        <div class="soc-card soc-card-interactive" style="border-color: rgba(239, 68, 68, 0.6);">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="kpi-title" style="color: #fca5a5;">CRITICAL ISSUES</span>
+            <div class="kpi-icon" style="border-color: rgba(239, 68, 68, 0.4);"><i class="fa-solid fa-radiation text-danger"></i></div>
+          </div>
+          <div class="kpi-value text-danger" id="kpi-critical">--</div>
+          <div class="small text-dim mt-1">Urgent remediation required</div>
+        </div>
+      </div>
+
+      <div class="col-6 col-md-4">
+        <div class="soc-card soc-card-interactive">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="kpi-title">HIGH-RISK ISSUES</span>
+            <div class="kpi-icon"><i class="fa-solid fa-triangle-exclamation" style="color: #f97316;"></i></div>
+          </div>
+          <div class="kpi-value" style="color: #f97316;" id="kpi-high">--</div>
+          <div class="small text-dim mt-1">High vulnerability level</div>
+        </div>
+      </div>
+
+      <div class="col-6 col-md-4">
+        <div class="soc-card soc-card-interactive">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="kpi-title">MEDIUM-RISK</span>
+            <div class="kpi-icon"><i class="fa-solid fa-circle-exclamation text-warning"></i></div>
+          </div>
+          <div class="kpi-value text-warning" id="kpi-medium">--</div>
+          <div class="small text-dim mt-1">Moderate risk level</div>
+        </div>
+      </div>
+
+      <div class="col-6 col-md-4">
+        <div class="soc-card soc-card-interactive">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="kpi-title">LOW-RISK</span>
+            <div class="kpi-icon"><i class="fa-solid fa-circle-info text-info"></i></div>
+          </div>
+          <div class="kpi-value text-info" id="kpi-low">--</div>
+          <div class="small text-dim mt-1">Low risk advisory</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Analytics Charts Row -->
+<div class="row g-3 mb-4">
+  <!-- Risk Distribution Donut Chart -->
+  <div class="col-12 col-md-4">
+    <div class="soc-card h-100">
+      <h6 class="fw-bold mb-3 royal-heading"><i class="fa-solid fa-chart-pie me-2 royal-gold-text"></i> Risk Severity Distribution</h6>
+      <div style="height: 230px; position: relative;">
+        <canvas id="riskDonutChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Issues by Resource Type Bar Chart -->
+  <div class="col-12 col-md-4">
+    <div class="soc-card h-100">
+      <h6 class="fw-bold mb-3 royal-heading"><i class="fa-solid fa-chart-column me-2 royal-gold-text"></i> Issues By Resource Type</h6>
+      <div style="height: 230px; position: relative;">
+        <canvas id="resourceTypeBarChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Security Score Over Time Line Chart -->
+  <div class="col-12 col-md-4">
+    <div class="soc-card h-100">
+      <h6 class="fw-bold mb-3 royal-heading"><i class="fa-solid fa-chart-line me-2 royal-gold-text"></i> Security Score Trend</h6>
+      <div style="height: 230px; position: relative;">
+        <canvas id="scoreHistoryLineChart"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Tables & Live Feed Row -->
+<div class="row g-3">
+  <!-- Recent Scans History Table -->
+  <div class="col-12 col-xl-7">
+    <div class="soc-card">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="fw-bold mb-0 royal-heading"><i class="fa-solid fa-clock-rotate-left me-2 royal-gold-text"></i> Recent Security Scans</h6>
+        <a href="{{ url_for('scans.index') }}" class="btn btn-sm royal-user-btn">View All</a>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-dark-custom align-middle mb-0">
+          <thead>
+            <tr>
+              <th>Scan ID</th>
+              <th>Mode</th>
+              <th>Timestamp</th>
+              <th>Scanned</th>
+              <th>Score</th>
+            </tr>
+          </thead>
+          <tbody id="recent-scans-tbody">
+            <tr><td colspan="5" class="text-center text-dim">Loading scan telemetry...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent Security Alerts Feed -->
+  <div class="col-12 col-xl-5">
+    <div class="soc-card">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="fw-bold mb-0 royal-heading"><i class="fa-solid fa-bell me-2 text-danger"></i> Recent Security Alerts</h6>
+        <a href="{{ url_for('alerts.index') }}" class="btn btn-sm royal-user-btn">Alert Center</a>
+      </div>
+      <div id="recent-alerts-list">
+        <div class="p-3 text-center text-dim">Loading alerts...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TOP PROBLEMS FOUND PANEL ===== -->
+<div class="row g-3 mt-1">
+  <div class="col-12">
+    <div class="soc-card">
+      <div class="d-flex justify-content-between align-items-center mb-3 border-bottom border-secondary pb-3 flex-wrap gap-2">
+        <div>
+          <h5 class="fw-bold mb-1 royal-heading">
+            <i class="fa-solid fa-triangle-exclamation text-danger me-2"></i> Top Problems Found & 1-Click Auto-Fix
+          </h5>
+          <p class="text-dim small mb-0">Ranked by risk severity — execute 1-Click Auto-Remediation to resolve immediately</p>
+        </div>
+        <div class="d-flex gap-2">
+          <a href="{{ url_for('findings.index') }}" class="btn btn-sm btn-outline-warning">
+            <i class="fa-solid fa-list me-1"></i> View All Findings
+          </a>
+        </div>
+      </div>
+
+      <!-- Problem Cards Container -->
+      <div id="top-problems-container">
+        <div class="text-center text-dim py-4">
+          <i class="fa-solid fa-spinner fa-spin me-2"></i> Loading problems...
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== ATTACK PATH VISUALIZER MODAL ===== -->
+<div class="modal fade" id="attackPathModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content royal-modal p-3">
+      <div class="modal-header border-bottom border-secondary pb-2">
+        <h4 class="modal-title royal-heading"><i class="fa-solid fa-route text-danger me-2"></i> Cloud Threat Attack Path Visualizer</h4>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body py-4">
+        <p class="text-dim small mb-4">
+          Simulated adversary kill-chain modeling: Shows how misconfigured entrypoints allow lateral movement and data exfiltration inside your cloud perimeter.
+        </p>
+
+        <!-- Threat Vector Flow Container -->
+        <div class="row g-3 text-center align-items-center">
+          <!-- Step 1: Adversary -->
+          <div class="col-12 col-md-2">
+            <div class="p-3 rounded" style="background: rgba(239,68,68,0.15); border: 2px solid #ef4444;">
+              <i class="fa-solid fa-user-ninja fa-2x text-danger mb-2"></i>
+              <div class="fw-bold text-danger small">1. Adversary</div>
+              <div class="small text-dim font-mono">0.0.0.0/0 (Internet)</div>
+            </div>
+          </div>
+
+          <div class="col-12 col-md-1 text-center d-none d-md-block">
+            <i class="fa-solid fa-arrow-right fa-2x text-danger"></i>
+          </div>
+
+          <!-- Step 2: Open Ingress -->
+          <div class="col-12 col-md-2">
+            <div class="p-3 rounded" style="background: rgba(249,115,22,0.15); border: 2px solid #f97316;">
+              <i class="fa-solid fa-shield-halved fa-2x text-warning mb-2"></i>
+              <div class="fw-bold text-warning small">2. Open Ingress</div>
+              <div class="small text-dim font-mono">SG Port 22 / 3306</div>
+            </div>
+          </div>
+
+          <div class="col-12 col-md-1 text-center d-none d-md-block">
+            <i class="fa-solid fa-arrow-right fa-2x text-warning"></i>
+          </div>
+
+          <!-- Step 3: Compute Compromise -->
+          <div class="col-12 col-md-2">
+            <div class="p-3 rounded" style="background: rgba(234,179,8,0.15); border: 2px solid #eab308;">
+              <i class="fa-solid fa-server fa-2x text-warning mb-2"></i>
+              <div class="fw-bold text-warning small">3. EC2 Instance</div>
+              <div class="small text-dim font-mono">Public IP Node</div>
+            </div>
+          </div>
+
+          <div class="col-12 col-md-1 text-center d-none d-md-block">
+            <i class="fa-solid fa-arrow-right fa-2x text-warning"></i>
+          </div>
+
+          <!-- Step 4: Exfiltration Target -->
+          <div class="col-12 col-md-3">
+            <div class="p-3 rounded" style="background: rgba(239,68,68,0.25); border: 2px dashed #ef4444; box-shadow: 0 0 25px rgba(239,68,68,0.3);">
+              <i class="fa-solid fa-database fa-2x text-danger mb-2"></i>
+              <div class="fw-bold text-danger small">4. Target Assets Exfiltration</div>
+              <div class="small text-light font-mono">S3 Data Bucket / RDS DB</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-4 p-3 rounded" style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);">
+          <h6 class="text-gold small fw-bold text-uppercase mb-2"><i class="fa-solid fa-shield-virus me-1"></i> Defensive Mitigation Recommendation</h6>
+          <p class="small text-light mb-0">
+            Applying <strong>1-Click Auto-Remediation</strong> revokes open perimeter ports and places S3 Public Access Blocks, breaking the attack chain at Step 2 and preventing adversary entry.
+          </p>
+        </div>
+      </div>
+      <div class="modal-footer border-0 justify-content-end">
+        <button type="button" class="btn royal-user-btn" data-bs-dismiss="modal">Close Threat Graph</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openAttackPathModal() {
+  const modalEl = document.getElementById('attackPathModal');
+  if (modalEl) {
+    const bsModal = new bootstrap.Modal(modalEl);
+    bsModal.show();
+  }
+}
+</script>
+{% endblock %}

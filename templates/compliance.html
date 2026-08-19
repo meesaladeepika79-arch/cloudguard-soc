@@ -1,0 +1,183 @@
+﻿{% extends "base.html" %}
+
+{% block page_title %}Cloud Compliance & Governance Matrix{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <div>
+    <h4 class="fw-bold mb-1 royal-heading">Regulatory Compliance Posture</h4>
+    <p class="text-dim small mb-0">Automated mapping to CIS AWS Benchmarks, NIST SP 800-53, PCI-DSS v4.0, HIPAA & ISO 27001</p>
+  </div>
+  <button onclick="loadComplianceData()" class="btn royal-user-btn btn-sm">
+    <i class="fa-solid fa-arrows-rotate me-1"></i> Refresh Compliance Audit
+  </button>
+</div>
+
+<!-- Framework Compliance KPI Cards Row -->
+<div class="row g-3 mb-4" id="compliance-kpi-row">
+  <div class="col-12 text-center py-4 text-dim">
+    <i class="fa-solid fa-spinner fa-spin me-2"></i> Evaluating regulatory frameworks...
+  </div>
+</div>
+
+<!-- Detailed Controls Matrix Card -->
+<div class="soc-card">
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2 border-bottom border-secondary pb-3">
+    <div>
+      <h5 class="fw-bold mb-0 royal-heading"><i class="fa-solid fa-shield-check me-2 royal-gold-text"></i> Regulatory Controls Breakdown</h5>
+      <span class="small text-dim">Click any framework pill to filter controls</span>
+    </div>
+    
+    <!-- Framework Filter Tabs -->
+    <div class="d-flex gap-2 flex-wrap" id="framework-filter-tabs">
+      <button class="btn btn-sm btn-outline-warning active" onclick="filterFramework('ALL', this)">All Standards</button>
+      <button class="btn btn-sm btn-outline-info" onclick="filterFramework('CIS_AWS', this)">CIS AWS</button>
+      <button class="btn btn-sm btn-outline-info" onclick="filterFramework('NIST', this)">NIST SP 800-53</button>
+      <button class="btn btn-sm btn-outline-info" onclick="filterFramework('PCI_DSS', this)">PCI-DSS v4.0</button>
+      <button class="btn btn-sm btn-outline-info" onclick="filterFramework('HIPAA', this)">HIPAA</button>
+      <button class="btn btn-sm btn-outline-info" onclick="filterFramework('ISO_27001', this)">ISO 27001</button>
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-dark-custom align-middle mb-0">
+      <thead>
+        <tr>
+          <th>Framework</th>
+          <th>Control ID</th>
+          <th>Control Title & Requirement</th>
+          <th>Audit Status</th>
+          <th>Non-Compliant Assets</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="compliance-tbody">
+        <tr><td colspan="6" class="text-center text-dim py-4">Loading control data...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  loadComplianceData();
+});
+
+let complianceCache = null;
+let currentFrameworkFilter = 'ALL';
+
+function loadComplianceData() {
+  fetch('/api/compliance')
+    .then(res => res.json())
+    .then(data => {
+      complianceCache = data;
+      renderKPIs(data.frameworks);
+      renderTable(data.frameworks, currentFrameworkFilter);
+    })
+    .catch(err => console.error('Failed to load compliance:', err));
+}
+
+function renderKPIs(frameworks) {
+  const container = document.getElementById('compliance-kpi-row');
+  if (!container) return;
+
+  const cards = Object.keys(frameworks).map(key => {
+    const fw = frameworks[key];
+    const scoreColor = fw.score_pct >= 85 ? '#10b981' : fw.score_pct >= 70 ? '#f59e0b' : '#ef4444';
+    
+    return `
+      <div class="col-12 col-md-6 col-xl">
+        <div class="soc-card soc-card-interactive h-100 p-3" style="border-top: 3px solid ${fw.badge_color}; cursor:pointer;" onclick="filterFramework('${key}', null)">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="badge" style="background:${fw.badge_color}30; border:1px solid ${fw.badge_color}; color:#fff; font-size:0.75rem;">${fw.version}</span>
+            <span class="small font-mono fw-bold" style="color:${scoreColor};">${fw.passed_controls}/${fw.total_controls} Passed</span>
+          </div>
+          <div class="fw-bold text-light mb-1 small">${fw.name}</div>
+          <div class="display-6 fw-bold my-2" style="color:${scoreColor}; text-shadow:0 0 10px ${scoreColor}40;">
+            ${fw.score_pct}%
+          </div>
+          <div class="progress bg-dark" style="height:6px; border-radius:3px;">
+            <div class="progress-bar" style="width:${fw.score_pct}%; background-color:${scoreColor};"></div>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+
+  container.innerHTML = cards;
+}
+
+function renderTable(frameworks, filterKey) {
+  const tbody = document.getElementById('compliance-tbody');
+  if (!tbody) return;
+
+  let allRows = [];
+
+  Object.keys(frameworks).forEach(fwKey => {
+    if (filterKey !== 'ALL' && fwKey !== filterKey) return;
+    const fw = frameworks[fwKey];
+
+    fw.controls.forEach(ctrl => {
+      allRows.push({
+        fwKey: fwKey,
+        fwName: fw.name,
+        badgeColor: fw.badge_color,
+        ...ctrl
+      });
+    });
+  });
+
+  if (allRows.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="text-center text-dim py-4">No controls found for this filter.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = allRows.map(r => `
+    <tr>
+      <td>
+        <span class="badge" style="background:${r.badgeColor}25; border:1px solid ${r.badgeColor}; color:#fff; font-size:0.78rem;">
+          ${r.fwName}
+        </span>
+      </td>
+      <td><span class="font-mono fw-bold" style="color:#7dd3fc;">${r.control}</span></td>
+      <td>
+        <div class="fw-semibold text-light">${r.title}</div>
+        <div class="small text-dim">Rule: <code class="font-mono" style="color:#fde047;">${r.rule_id}</code></div>
+      </td>
+      <td>
+        <span class="badge ${r.status === 'PASS' ? 'badge-info' : 'badge-critical'} px-3 py-1">
+          <i class="fa-solid ${r.status === 'PASS' ? 'fa-circle-check' : 'fa-circle-xmark'} me-1"></i> ${r.status}
+        </span>
+      </td>
+      <td>
+        ${r.status === 'FAIL' ? `
+          <span class="badge bg-danger bg-opacity-25 border border-danger text-danger">${r.affected_count} Non-Compliant</span>
+          <div class="small font-mono text-dim mt-1">${r.affected_resources.join(', ')}</div>
+        ` : `<span class="small text-success"><i class="fa-solid fa-check me-1"></i> 100% Compliant</span>`}
+      </td>
+      <td>
+        ${r.status === 'FAIL' ? `
+          <a href="/findings" class="btn btn-sm btn-outline-warning">
+            <i class="fa-solid fa-wrench me-1"></i> Remediate
+          </a>
+        ` : `<span class="text-dim small">—</span>`}
+      </td>
+    </tr>
+  `).join('');
+}
+
+function filterFramework(fwKey, btn) {
+  currentFrameworkFilter = fwKey;
+  if (btn) {
+    document.querySelectorAll('#framework-filter-tabs button').forEach(b => b.classList.remove('active', 'btn-outline-warning'));
+    document.querySelectorAll('#framework-filter-tabs button').forEach(b => b.classList.add('btn-outline-info'));
+    btn.classList.remove('btn-outline-info');
+    btn.classList.add('active', 'btn-outline-warning');
+  }
+  if (complianceCache) {
+    renderTable(complianceCache.frameworks, fwKey);
+  }
+}
+</script>
+{% endblock %}

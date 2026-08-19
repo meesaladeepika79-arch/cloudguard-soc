@@ -1,0 +1,216 @@
+﻿{% extends "base.html" %}
+
+{% block page_title %}Cloud Security Scanner Console & Automation{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <div>
+    <h4 class="fw-bold mb-1 royal-heading">Security Scanner Control Panel</h4>
+    <p class="text-dim small mb-0">Execute automated configuration scans, manage continuous monitoring & configure real-time incident webhooks</p>
+  </div>
+</div>
+
+<div class="row g-4 mb-4">
+  <!-- Left Side: Scan Execution & Multi-Region -->
+  <div class="col-12 col-lg-6">
+    <div class="soc-card h-100">
+      <h5 class="fw-bold mb-3 royal-heading"><i class="fa-solid fa-radar text-cyan me-2"></i> On-Demand Cloud Audit</h5>
+      <p class="text-dim small mb-3">
+        Inspects cloud configurations against predefined CIS/NIST cybersecurity rules (S3 permissions/encryption, EC2 exposure, IAM admin/MFA, SG ports, RDS settings).
+      </p>
+
+      <!-- Multi-Region Selector -->
+      <div class="mb-3">
+        <label class="small text-gold fw-bold text-uppercase mb-1"><i class="fa-solid fa-earth-americas me-1"></i> Target AWS Region</label>
+        <select id="scan-region-select" class="form-select form-select-dark">
+          <option value="us-east-1" selected>US East (N. Virginia) — us-east-1</option>
+          <option value="us-west-2">US West (Oregon) — us-west-2</option>
+          <option value="ap-south-1">Asia Pacific (Mumbai) — ap-south-1</option>
+          <option value="eu-west-1">Europe (Ireland) — eu-west-1</option>
+          <option value="ap-southeast-1">Asia Pacific (Singapore) — ap-southeast-1</option>
+        </select>
+      </div>
+
+      <div class="royal-switch-container mb-4">
+        <div class="form-check form-switch mb-1">
+          <input class="form-check-input royal-checkbox-highlight" type="checkbox" id="mode-switch">
+          <label class="form-check-label text-light fw-bold ms-1" for="mode-switch">
+            <i class="fa-solid fa-flask royal-gold-text me-1"></i> Demo Mode (Simulated Mock Cloud Infrastructure)
+          </label>
+        </div>
+        <div class="form-text text-dim small">Keep unchecked for <strong>Real-Time AWS Boto3 API Discovery</strong>. Check only if you wish to run simulated mock scans.</div>
+      </div>
+
+      <button id="btn-run-scan" onclick="triggerScanFromConsole()" class="btn royal-scan-btn btn-lg w-100 py-3 shadow">
+        <i class="fa-solid fa-play me-2"></i> Execute Security Scan Now
+      </button>
+    </div>
+  </div>
+
+  <!-- Right Side: Continuous Background Monitoring & Webhooks -->
+  <div class="col-12 col-lg-6">
+    <!-- Scheduled Monitoring Card -->
+    <div class="soc-card mb-4">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h5 class="fw-bold mb-0 royal-heading"><i class="fa-solid fa-clock text-warning me-2"></i> Background Continuous Scan</h5>
+        <span id="scheduler-status-badge" class="badge bg-secondary">Disabled</span>
+      </div>
+      <p class="text-dim small mb-3">Runs automated background scans periodically without requiring manual intervention.</p>
+      
+      <div class="d-flex align-items-center gap-3 mb-3">
+        <select id="scheduler-interval" class="form-select form-select-dark form-select-sm" style="max-width:200px;">
+          <option value="15">Every 15 Minutes</option>
+          <option value="30" selected>Every 30 Minutes</option>
+          <option value="60">Every 1 Hour</option>
+          <option value="360">Every 6 Hours</option>
+        </select>
+        <button id="btn-toggle-scheduler" onclick="toggleScheduler()" class="btn btn-sm btn-outline-warning fw-bold">
+          <i class="fa-solid fa-toggle-on me-1"></i> Enable Scheduler
+        </button>
+      </div>
+      <div class="small text-dim" id="scheduler-last-run">Last background run: Never</div>
+    </div>
+
+    <!-- Webhook Alert Configuration Card -->
+    <div class="soc-card">
+      <h5 class="fw-bold mb-2 royal-heading"><i class="fa-solid fa-bell text-danger me-2"></i> Real-Time Incident Webhook</h5>
+      <p class="text-dim small mb-2">Dispatches rich alerts to Slack / Discord / Teams whenever CRITICAL or HIGH findings occur.</p>
+      
+      <div class="input-group mb-2">
+        <input type="text" id="webhook-url-input" class="form-control form-control-dark" placeholder="https://discord.com/api/webhooks/..." />
+        <button onclick="testWebhook()" class="btn btn-outline-danger btn-sm px-3">
+          <i class="fa-solid fa-paper-plane me-1"></i> Test Webhook
+        </button>
+      </div>
+      <div class="small text-dim">Or set <code>SECURITY_WEBHOOK_URL</code> in your <code>.env</code> file.</div>
+    </div>
+  </div>
+</div>
+
+<!-- Scan History Log Table -->
+<div class="soc-card">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="fw-bold mb-0 royal-heading"><i class="fa-solid fa-clock-rotate-left text-cyan me-2"></i> Scan Audit Logs & Telemetry</h5>
+    <button onclick="loadScansTable()" class="btn btn-sm royal-user-btn">Refresh Logs</button>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-dark-custom align-middle mb-0">
+      <thead>
+        <tr>
+          <th>Scan ID</th>
+          <th>Mode</th>
+          <th>Started At</th>
+          <th>Completed At</th>
+          <th>Resources</th>
+          <th>Issues Found</th>
+          <th>Security Score</th>
+        </tr>
+      </thead>
+      <tbody id="scans-history-tbody">
+        <tr><td colspan="7" class="text-center text-dim py-4">Loading scan history...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  loadScansTable();
+  loadSchedulerStatus();
+});
+
+function loadScansTable() {
+  fetch('/api/scans/history')
+    .then(res => res.json())
+    .then(scans => {
+      const tbody = document.getElementById('scans-history-tbody');
+      if (!scans || scans.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="text-center text-dim py-4">No historical scans recorded.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = scans.map(s => `
+        <tr>
+          <td class="font-mono text-cyan fw-bold">${s.scan_id}</td>
+          <td><span class="royal-status-badge">${s.scan_mode}</span></td>
+          <td><span class="small font-mono text-light">${s.started_at}</span></td>
+          <td><span class="small font-mono text-light">${s.completed_at || 'In Progress'}</span></td>
+          <td><span class="badge bg-dark border border-secondary text-light">${s.resources_scanned} Assets</span></td>
+          <td><span class="badge ${s.findings_count > 0 ? 'badge-critical' : 'badge-info'}">${s.findings_count}</span></td>
+          <td>
+            <span class="fw-bold ${s.security_score >= 80 ? 'text-success' : s.security_score >= 60 ? 'text-warning' : 'text-danger'}">
+              ${s.security_score} / 100
+            </span>
+          </td>
+        </tr>
+      `).join('');
+    });
+}
+
+function triggerScanFromConsole() {
+  const isDemo = document.getElementById('mode-switch').checked;
+  const region = document.getElementById('scan-region-select').value;
+  triggerScanExecution(isDemo, region);
+}
+
+function loadSchedulerStatus() {
+  fetch('/api/scans/scheduler')
+    .then(res => res.json())
+    .then(data => {
+      const badge = document.getElementById('scheduler-status-badge');
+      const btn = document.getElementById('btn-toggle-scheduler');
+      const lastRun = document.getElementById('scheduler-last-run');
+
+      if (data.active) {
+        badge.className = 'badge bg-success';
+        badge.innerText = 'Active (Every ' + data.interval_minutes + 'm)';
+        btn.innerHTML = `<i class="fa-solid fa-toggle-off me-1"></i> Disable Scheduler`;
+        btn.className = 'btn btn-sm btn-outline-danger fw-bold';
+      } else {
+        badge.className = 'badge bg-secondary';
+        badge.innerText = 'Disabled';
+        btn.innerHTML = `<i class="fa-solid fa-toggle-on me-1"></i> Enable Scheduler`;
+        btn.className = 'btn btn-sm btn-outline-warning fw-bold';
+      }
+      if (data.last_run) {
+        lastRun.innerText = 'Last background run: ' + data.last_run;
+      }
+    });
+}
+
+function toggleScheduler() {
+  fetch('/api/scans/scheduler')
+    .then(res => res.json())
+    .then(current => {
+      const newActive = !current.active;
+      const interval = document.getElementById('scheduler-interval').value;
+      
+      fetch('/api/scans/scheduler', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enable: newActive, interval_minutes: interval })
+      })
+      .then(res => res.json())
+      .then(() => {
+        loadSchedulerStatus();
+      });
+    });
+}
+
+function testWebhook() {
+  const url = document.getElementById('webhook-url-input').value;
+  fetch('/api/webhooks/test', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ webhook_url: url })
+  })
+  .then(res => res.json())
+  .then(data => {
+    alert("Webhook Result: " + data.message);
+  })
+  .catch(err => alert("Webhook test failed: " + err));
+}
+</script>
+{% endblock %}

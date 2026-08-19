@@ -1,0 +1,261 @@
+﻿{% extends "base.html" %}
+
+{% block page_title %}Finding Details: {{ finding.finding_id }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <a href="{{ url_for('findings.index') }}" class="btn btn-sm royal-user-btn">
+    <i class="fa-solid fa-arrow-left me-1"></i> Back to Findings List
+  </a>
+  
+  <div class="d-flex gap-2">
+    <button onclick="triggerAutoFix({{ finding.id }}, this)" class="btn btn-sm btn-warning fw-bold px-3">
+      <i class="fa-solid fa-bolt me-1"></i> 1-Click Auto-Fix (SOAR)
+    </button>
+  </div>
+</div>
+
+<div class="row g-4">
+  <!-- Left Side: Finding Threat Details -->
+  <div class="col-12 col-lg-8">
+    <div class="soc-card mb-4">
+      <div class="d-flex align-items-center justify-content-between mb-3 border-bottom border-secondary pb-3 flex-wrap gap-2">
+        <div>
+          <span class="font-mono text-cyan small d-block">{{ finding.finding_id }}</span>
+          <h4 class="fw-bold text-light mb-0">{{ finding.title }}</h4>
+        </div>
+        <div>
+          <span class="badge {% if finding.severity == 'CRITICAL' %}badge-critical{% elif finding.severity == 'HIGH' %}badge-high{% elif finding.severity == 'MEDIUM' %}badge-medium{% else %}badge-low{% endif %} fs-6 px-3 py-2">
+            {{ finding.severity }}
+          </span>
+        </div>
+      </div>
+
+      <!-- ===== WHAT WENT WRONG ===== -->
+      {% set sev = finding.severity %}
+      {% if sev == 'CRITICAL' %}
+        {% set alert_color = '#ef4444' %}{% set alert_bg = 'rgba(239,68,68,0.12)' %}{% set alert_icon = 'fa-radiation' %}
+      {% elif sev == 'HIGH' %}
+        {% set alert_color = '#f97316' %}{% set alert_bg = 'rgba(249,115,22,0.12)' %}{% set alert_icon = 'fa-triangle-exclamation' %}
+      {% elif sev == 'MEDIUM' %}
+        {% set alert_color = '#eab308' %}{% set alert_bg = 'rgba(234,179,8,0.12)' %}{% set alert_icon = 'fa-circle-exclamation' %}
+      {% else %}
+        {% set alert_color = '#38bdf8' %}{% set alert_bg = 'rgba(56,189,248,0.12)' %}{% set alert_icon = 'fa-circle-info' %}
+      {% endif %}
+
+      <div class="mb-4 p-3 rounded" style="background:{{ alert_bg }}; border-left: 4px solid {{ alert_color }};">
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <i class="fa-solid {{ alert_icon }}" style="color:{{ alert_color }}; font-size:1.2rem;"></i>
+          <span class="fw-bold text-uppercase small" style="color:{{ alert_color }}; letter-spacing:1px;">Security Issue Summary</span>
+        </div>
+        <div class="fw-semibold text-light mb-1">
+          The resource <span style="color:{{ alert_color }}; font-weight:700;">{{ finding.resource_rel.resource_name if finding.resource_rel else finding.resource_id }}</span>
+          has an active <span style="color:{{ alert_color }}; font-weight:700;">{{ finding.severity }}</span> misconfiguration:
+        </div>
+        <div class="text-light mt-1">{{ finding.description }}</div>
+      </div>
+
+      <!-- Compliance Mappings Badges -->
+      {% if compliance_mappings %}
+      <div class="mb-4">
+        <h6 class="text-gold small fw-bold text-uppercase mb-2"><i class="fa-solid fa-shield-halved me-1"></i> Regulatory Compliance Impact</h6>
+        <div class="d-flex gap-2 flex-wrap">
+          {% for cm in compliance_mappings %}
+          <div class="p-2 rounded" style="background: rgba(255,255,255,0.05); border: 1px solid {{ cm.badge_color }}60;">
+            <span class="badge" style="background:{{ cm.badge_color }}25; border: 1px solid {{ cm.badge_color }}; color:#fff; font-size:0.75rem;">{{ cm.framework_name }}</span>
+            <span class="font-mono text-light small fw-bold ms-1">{{ cm.control }}</span>
+            <div class="small text-dim mt-1">{{ cm.title }}</div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Threat Context: Why it is dangerous -->
+      <div class="mb-4">
+        <h6 class="text-danger small fw-bold text-uppercase mb-2"><i class="fa-solid fa-triangle-exclamation me-1"></i> Threat Risk Context & Attack Vector</h6>
+        <div class="p-3 rounded bg-danger bg-opacity-10 border border-danger text-light">
+          {{ finding.threat_context or "Exposing security misconfigurations can allow attackers to perform unauthorized operations or breach data integrity." }}
+        </div>
+      </div>
+
+      <!-- Recommended Remediation -->
+      <div class="mb-4">
+        <h6 class="text-success small fw-bold text-uppercase mb-2"><i class="fa-solid fa-wrench me-1"></i> Recommended Remediation Guidance</h6>
+        <div class="p-3 rounded bg-success bg-opacity-10 border border-success text-light">
+          {{ finding.recommendation }}
+        </div>
+      </div>
+
+      <!-- ===== REMEDIATION CODE GENERATOR TABS ===== -->
+      {% if remediation_snippets %}
+      <div class="mt-4 pt-3 border-top border-secondary">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h6 class="text-gold small fw-bold text-uppercase mb-0">
+            <i class="fa-solid fa-code me-1"></i> Remediation Code Generator (IaC & CLI)
+          </h6>
+          <span class="small text-dim">Ready to copy & execute</span>
+        </div>
+
+        <ul class="nav nav-tabs nav-tabs-dark mb-3" id="codeGenTabs" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active font-mono small" id="cli-tab" data-bs-toggle="tab" data-bs-target="#cli-pane" type="button"><i class="fa-solid fa-terminal me-1"></i> AWS CLI</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link font-mono small" id="tf-tab" data-bs-toggle="tab" data-bs-target="#tf-pane" type="button"><i class="fa-solid fa-cube me-1"></i> Terraform</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link font-mono small" id="cfn-tab" data-bs-toggle="tab" data-bs-target="#cfn-pane" type="button"><i class="fa-solid fa-file-code me-1"></i> CloudFormation</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link font-mono small" id="boto-tab" data-bs-toggle="tab" data-bs-target="#boto-pane" type="button"><i class="fa-brands fa-python me-1"></i> Python Boto3</button>
+          </li>
+        </ul>
+
+        <div class="tab-content" id="codeGenContent">
+          <!-- CLI Pane -->
+          <div class="tab-pane fade show active" id="cli-pane">
+            <div class="position-relative">
+              <pre class="p-3 rounded bg-dark border border-secondary font-mono small text-info mb-0" style="overflow-x:auto;"><code>{{ remediation_snippets.cli }}</code></pre>
+              <button onclick="copySnippet('{{ remediation_snippets.cli | replace('\n', '\\n') | replace('\'', '\\\'') }}', this)" class="btn btn-sm btn-outline-info position-absolute top-0 end-0 m-2">
+                <i class="fa-solid fa-copy me-1"></i> Copy
+              </button>
+            </div>
+          </div>
+
+          <!-- Terraform Pane -->
+          <div class="tab-pane fade" id="tf-pane">
+            <div class="position-relative">
+              <pre class="p-3 rounded bg-dark border border-secondary font-mono small text-warning mb-0" style="overflow-x:auto;"><code>{{ remediation_snippets.terraform }}</code></pre>
+              <button onclick="copySnippet(`{{ remediation_snippets.terraform }}`, this)" class="btn btn-sm btn-outline-warning position-absolute top-0 end-0 m-2">
+                <i class="fa-solid fa-copy me-1"></i> Copy
+              </button>
+            </div>
+          </div>
+
+          <!-- CloudFormation Pane -->
+          <div class="tab-pane fade" id="cfn-pane">
+            <div class="position-relative">
+              <pre class="p-3 rounded bg-dark border border-secondary font-mono small text-success mb-0" style="overflow-x:auto;"><code>{{ remediation_snippets.cloudformation }}</code></pre>
+              <button onclick="copySnippet(`{{ remediation_snippets.cloudformation }}`, this)" class="btn btn-sm btn-outline-success position-absolute top-0 end-0 m-2">
+                <i class="fa-solid fa-copy me-1"></i> Copy
+              </button>
+            </div>
+          </div>
+
+          <!-- Python Boto3 Pane -->
+          <div class="tab-pane fade" id="boto-pane">
+            <div class="position-relative">
+              <pre class="p-3 rounded bg-dark border border-secondary font-mono small text-cyan mb-0" style="overflow-x:auto;"><code>{{ remediation_snippets.boto3 }}</code></pre>
+              <button onclick="copySnippet(`{{ remediation_snippets.boto3 }}`, this)" class="btn btn-sm btn-outline-cyan position-absolute top-0 end-0 m-2">
+                <i class="fa-solid fa-copy me-1"></i> Copy
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+
+  <!-- Right Side: Affected Resource & Status Updater -->
+  <div class="col-12 col-lg-4">
+    <!-- Resource Metadata -->
+    <div class="soc-card mb-4">
+      <h6 class="fw-bold mb-3 border-bottom border-secondary pb-2 royal-heading"><i class="fa-solid fa-server text-cyan me-2"></i> Affected Cloud Resource</h6>
+      
+      <div class="mb-3">
+        <span class="text-dim small d-block">RESOURCE NAME</span>
+        <span class="fw-bold text-light fs-5">{{ finding.resource_rel.resource_name if finding.resource_rel else finding.resource_id }}</span>
+      </div>
+
+      <div class="mb-3">
+        <span class="text-dim small d-block">RESOURCE ID</span>
+        <span class="font-mono text-cyan small">{{ finding.resource_id }}</span>
+      </div>
+
+      <div class="mb-3">
+        <span class="text-dim small d-block">RESOURCE TYPE</span>
+        <span class="badge bg-dark border border-secondary text-light">${{ finding.resource_rel.resource_type if finding.resource_rel else 'Unknown' }}</span>
+      </div>
+
+      <div class="mb-3">
+        <span class="text-dim small d-block">AWS REGION</span>
+        <span class="badge bg-dark border border-secondary text-light font-mono">{{ finding.resource_rel.region if finding.resource_rel else 'global' }}</span>
+      </div>
+
+      <div>
+        <span class="text-dim small d-block">DETECTION TIME</span>
+        <span class="text-light small font-mono">{{ finding.detected_at.strftime("%Y-%m-%d %H:%M:%S") if finding.detected_at else 'N/A' }}</span>
+      </div>
+    </div>
+
+    <!-- Remediation Status Control -->
+    <div class="soc-card">
+      <h6 class="fw-bold mb-3 border-bottom border-secondary pb-2 royal-heading"><i class="fa-solid fa-list-check text-cyan me-2"></i> Remediation Workflow</h6>
+      
+      <div class="mb-3">
+        <label class="text-dim small d-block mb-2">UPDATE AUDIT STATUS</label>
+        <select id="detail-status-select" class="form-select form-select-dark">
+          <option value="Open" {% if finding.status == 'Open' %}selected{% endif %}>Open</option>
+          <option value="Investigating" {% if finding.status == 'Investigating' %}selected{% endif %}>Investigating</option>
+          <option value="Resolved" {% if finding.status == 'Resolved' %}selected{% endif %}>Resolved</option>
+          <option value="Ignored" {% if finding.status == 'Ignored' %}selected{% endif %}>Ignored</option>
+        </select>
+      </div>
+
+      <button onclick="saveDetailStatus({{ finding.id }})" class="btn btn-cyan w-100 fw-bold mb-2">
+        <i class="fa-solid fa-floppy-disk me-1"></i> Save Status Change
+      </button>
+
+      <button onclick="triggerAutoFix({{ finding.id }}, this)" class="btn btn-warning w-100 fw-bold">
+        <i class="fa-solid fa-bolt me-1"></i> Execute 1-Click Auto-Fix
+      </button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function saveDetailStatus(findingId) {
+  const newStatus = document.getElementById('detail-status-select').value;
+  updateFindingStatus(findingId, newStatus);
+}
+
+function copySnippet(text, btn) {
+  navigator.clipboard.writeText(text).then(() => {
+    const original = btn.innerHTML;
+    btn.innerHTML = `<i class="fa-solid fa-check me-1"></i> Copied!`;
+    setTimeout(() => { btn.innerHTML = original; }, 2000);
+  });
+}
+
+function triggerAutoFix(findingId, btn) {
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> Remediating...`;
+  }
+
+  fetch(`/api/findings/${findingId}/autofix`, { method: 'POST' })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        alert("✓ Auto-Remediation Successful!\n\n" + data.message + "\n\nNew Security Score: " + data.new_overall_score + "/100");
+        window.location.reload();
+      } else {
+        alert("Auto-remediation encountered an issue: " + (data.error || "Unknown error"));
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = `<i class="fa-solid fa-bolt me-1"></i> 1-Click Auto-Fix`;
+        }
+      }
+    })
+    .catch(err => {
+      alert("Remediation request failed: " + err);
+      if (btn) btn.disabled = false;
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+
+{% block page_title %}Cloud Resource Inventory{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h4 class="fw-bold mb-1">Discovered Cloud Resources</h4>
+    <p class="text-muted small mb-0">Discovered S3 Buckets, EC2 Instances, IAM Identities, Security Groups & RDS DBs</p>
+  </div>
+  <button onclick="triggerScanExecution(false)" class="btn royal-user-btn btn-sm">
+    <i class="fa-solid fa-arrows-rotate me-1"></i> Rescan Resources
+  </button>
+</div>
+
+<!-- S3 Risk Management Highlight Banner -->
+<div class="soc-card mb-4 score-card-highlight">
+  <div class="d-flex align-items-center gap-3">
+    <div class="kpi-icon bg-warning bg-opacity-20 border-warning text-warning" style="width:56px; height:56px; font-size:1.6rem;">
+      <i class="fa-solid fa-bucket royal-gold-text"></i>
+    </div>
+    <div>
+      <h5 class="fw-bold mb-1 royal-heading">S3 Storage Risk Management & Security Score Control</h5>
+      <p class="text-dim small mb-0">
+        Monitors S3 Bucket Public Access Block Settings, Server-Side SSE-S3/KMS Encryption, Bucket Policies & Versioning to prevent unauthorized data exfiltration.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- Filters Bar -->
+<div class="soc-card mb-4">
+  <div class="row g-3 align-items-center">
+    <div class="col-12 col-md-4">
+      <div class="input-group">
+        <span class="input-group-text bg-dark border-secondary text-dim"><i class="fa-solid fa-magnifying-glass"></i></span>
+        <input type="text" id="search-input" onkeyup="filterResources()" class="form-control form-control-dark" placeholder="Search resource ID or name...">
+      </div>
+    </div>
+
+    <div class="col-6 col-md-4">
+      <select id="type-filter" onchange="loadResourcesTable()" class="form-select form-select-dark">
+        <option value="ALL">All Resource Types</option>
+        <option value="S3">S3 Buckets (Highlighted)</option>
+        <option value="EC2">EC2 Instances</option>
+        <option value="IAM">IAM Identities</option>
+        <option value="Security Group">Security Groups</option>
+        <option value="RDS">RDS Databases</option>
+      </select>
+    </div>
+
+    <div class="col-6 col-md-4">
+      <select id="status-filter" onchange="loadResourcesTable()" class="form-select form-select-dark">
+        <option value="ALL">All Statuses</option>
+        <option value="Active">Active</option>
+        <option value="Running">Running</option>
+        <option value="Available">Available</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+<!-- Resources Table -->
+<div class="soc-card">
+  <div class="table-responsive">
+    <table class="table table-dark-custom align-middle mb-0" id="resources-table">
+      <thead>
+        <tr>
+          <th>Resource ID / Name</th>
+          <th>Type</th>
+          <th>Region</th>
+          <th>Status</th>
+          <th>Active Findings</th>
+          <th>Resource Score</th>
+          <th>Last Scanned</th>
+        </tr>
+      </thead>
+      <tbody id="resources-tbody">
+        <tr><td colspan="7" class="text-center text-dim py-4">Loading resources inventory...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  loadResourcesTable();
+});
+
+let allResourcesCache = [];
+
+function loadResourcesTable() {
+  const typeVal = document.getElementById('type-filter').value;
+  const statusVal = document.getElementById('status-filter').value;
+
+  fetch(`/api/resources?type=${typeVal}&status=${statusVal}`)
+    .then(res => res.json())
+    .then(data => {
+      allResourcesCache = data;
+      renderResources(data);
+    });
+}
+
+function renderResources(resources) {
+  const tbody = document.getElementById('resources-tbody');
+  
+  if (!resources || resources.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" class="text-center text-dim py-4">No matching resources found.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = resources.map(r => {
+    const isS3 = r.resource_type === 'S3';
+    return `
+      <tr class="${isS3 ? 's3-row-highlight' : ''}">
+        <td>
+          <div class="fw-bold ${isS3 ? 'royal-gold-text' : 'text-light'}">${r.resource_name} ${isS3 ? '<span class="badge badge-s3-highlight ms-1"><i class="fa-solid fa-star me-1"></i>S3 Risk Monitored</span>' : ''}</div>
+          <div class="small font-mono text-dim">${r.resource_id}</div>
+        </td>
+        <td>
+          <span class="badge ${isS3 ? 'badge-s3-highlight' : 'royal-status-badge'}">
+            <i class="${getResourceTypeIcon(r.resource_type)} me-1"></i> ${r.resource_type}
+          </span>
+        </td>
+        <td><span class="badge bg-dark border border-secondary text-light font-mono px-2 py-1">${r.region}</span></td>
+        <td><span class="badge bg-success bg-opacity-25 border border-success text-success px-2 py-1">${r.status}</span></td>
+        <td>
+          <span class="badge ${r.findings_count > 0 ? 'badge-critical' : 'badge-info'} px-2 py-1">
+            ${r.findings_count} Issue(s)
+          </span>
+        </td>
+        <td>
+          <div class="fw-bold fs-6 ${r.security_score >= 80 ? 'text-success' : r.security_score >= 60 ? 'text-warning' : 'text-danger'}" ${isS3 ? 'style="text-shadow: 0 0 10px currentColor;"' : ''}>
+            ${r.security_score} / 100
+          </div>
+        </td>
+        <td><span class="small text-light font-mono">${r.last_scanned || 'N/A'}</span></td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function getResourceTypeIcon(type) {
+  switch(type) {
+    case 'S3': return 'fa-solid fa-bucket';
+    case 'EC2': return 'fa-solid fa-server';
+    case 'IAM': return 'fa-solid fa-user-lock';
+    case 'Security Group': return 'fa-solid fa-shield';
+    case 'RDS': return 'fa-solid fa-database';
+    default: return 'fa-solid fa-cube';
+  }
+}
+
+function filterResources() {
+  const query = document.getElementById('search-input').value.toLowerCase();
+  const filtered = allResourcesCache.filter(r => 
+    r.resource_name.toLowerCase().includes(query) || 
+    r.resource_id.toLowerCase().includes(query)
+  );
+  renderResources(filtered);
+}
+</script>
+{% endblock %}

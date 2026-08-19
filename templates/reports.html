@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block page_title %}Executive Cloud Security Audit Report{% endblock %}
+
+{% block content %}
+<!-- Print Header Controls -->
+<div class="d-flex justify-content-between align-items-center mb-4 btn-print-hide">
+  <div>
+    <h4 class="fw-bold mb-1">Executive Cloud Security Audit Report</h4>
+    <p class="text-muted small mb-0">Formal security posture report for cloud infrastructure compliance</p>
+  </div>
+  <button onclick="window.print()" class="btn btn-info text-dark fw-bold">
+    <i class="fa-solid fa-print me-2"></i> Print / Export PDF Report
+  </button>
+</div>
+
+<!-- Formatted Printable Report Body -->
+<div class="soc-card p-5">
+  <!-- Report Header -->
+  <div class="d-flex justify-content-between align-items-center border-bottom border-secondary pb-4 mb-4">
+    <div>
+      <h2 class="fw-bold text-light mb-1"><i class="fa-solid fa-shield-halved text-cyan me-2"></i> CloudGuard Security Posture Audit</h2>
+      <div class="text-muted small">Generated on: <span class="font-mono text-cyan fw-bold">{{ report.generated_at }}</span></div>
+    </div>
+    <div class="text-end">
+      <span class="badge {{ report.rating_info.badge }} fs-5 px-3 py-2">{{ report.rating_info.rating }}</span>
+      <div class="small text-muted mt-1">Audit Score: <strong class="text-light">{{ report.security_score }}/100</strong></div>
+    </div>
+  </div>
+
+  <!-- Executive Summary Cards -->
+  <div class="row g-3 mb-5">
+    <div class="col-3">
+      <div class="p-3 bg-dark rounded border border-secondary text-center">
+        <div class="text-muted small">SCANNED RESOURCES</div>
+        <div class="fs-2 fw-bold text-light">{{ report.total_resources }}</div>
+      </div>
+    </div>
+    <div class="col-3">
+      <div class="p-3 bg-dark rounded border border-secondary text-center">
+        <div class="text-muted small">TOTAL FINDINGS</div>
+        <div class="fs-2 fw-bold text-warning">{{ report.total_findings }}</div>
+      </div>
+    </div>
+    <div class="col-3">
+      <div class="p-3 bg-dark rounded border border-danger text-center">
+        <div class="text-muted small">CRITICAL RISKS</div>
+        <div class="fs-2 fw-bold text-danger">{{ report.severity_counts.CRITICAL }}</div>
+      </div>
+    </div>
+    <div class="col-3">
+      <div class="p-3 bg-dark rounded border border-warning text-center">
+        <div class="text-muted small">HIGH RISKS</div>
+        <div class="fs-2 fw-bold text-orange" style="color: #f97316;">{{ report.severity_counts.HIGH }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Priority Action Items (Critical & High Risk Findings) -->
+  <div class="mb-5">
+    <h5 class="fw-bold text-light mb-3"><i class="fa-solid fa-triangle-exclamation text-danger me-2"></i> High Priority Action Items</h5>
+    {% if report.critical_high_findings %}
+      <div class="table-responsive">
+        <table class="table table-dark-custom align-middle">
+          <thead>
+            <tr>
+              <th>Severity</th>
+              <th>Finding Title</th>
+              <th>Affected Resource</th>
+              <th>Remediation Recommendation</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for f in report.critical_high_findings %}
+              <tr>
+                <td><span class="badge {% if f.severity == 'CRITICAL' %}badge-critical{% else %}badge-high{% endif %}">{{ f.severity }}</span></td>
+                <td class="fw-bold text-light">{{ f.title }}</td>
+                <td class="font-mono text-cyan small">{{ f.resource_name }}</td>
+                <td class="small text-light">{{ f.recommendation }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="p-3 text-center text-success bg-dark rounded border border-success">
+        <i class="fa-solid fa-circle-check me-2"></i> No Critical or High severity security risks detected in active findings.
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- Resource Inventory Audit Table -->
+  <div>
+    <h5 class="fw-bold text-light mb-3"><i class="fa-solid fa-server text-cyan me-2"></i> Scanned Cloud Resource Posture</h5>
+    <div class="table-responsive">
+      <table class="table table-dark-custom align-middle">
+        <thead>
+          <tr>
+            <th>Resource Name</th>
+            <th>Type</th>
+            <th>Region</th>
+            <th>Status</th>
+            <th>Security Score</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in report.all_resources %}
+            <tr>
+              <td class="fw-bold text-light">{{ r.resource_name }}</td>
+              <td><span class="badge bg-dark border border-secondary text-cyan">{{ r.resource_type }}</span></td>
+              <td class="font-mono text-muted small">{{ r.region }}</td>
+              <td><span class="badge bg-success bg-opacity-25 text-success">{{ r.status }}</span></td>
+              <td class="fw-bold {% if r.security_score >= 80 %}text-success{% elif r.security_score >= 60 %}text-warning{% else %}text-danger{% endif %}">
+                {{ r.security_score }}/100
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Signoff Footer -->
+  <div class="row mt-5 pt-4 border-top border-secondary small text-muted">
+    <div class="col-6">
+      <div>Report prepared by: <strong>Cloud Security Operations Center (CloudGuard)</strong></div>
+      <div>Audit Engine Version: <strong>1.0.0-MCA-Release</strong></div>
+    </div>
+    <div class="col-6 text-end">
+      <div>Signature / Approval: ___________________________</div>
+      <div>Chief Information Security Officer (CISO) Audit</div>
+    </div>
+  </div>
+</div>
+{% endblock %}

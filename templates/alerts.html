@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block page_title %}Security Alerts & Incident Center{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h4 class="fw-bold mb-1">Security Alert Center</h4>
+    <p class="text-muted small mb-0">Automated notifications generated for CRITICAL & HIGH severity cloud misconfigurations</p>
+  </div>
+  <button onclick="markAllAlertsRead()" class="btn btn-outline-secondary btn-sm">
+    <i class="fa-solid fa-check-double me-1"></i> Mark All as Read
+  </button>
+</div>
+
+<!-- Alerts Container -->
+<div class="soc-card">
+  <div id="alerts-full-list">
+    <div class="p-4 text-center text-muted">Loading security alert center...</div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  loadFullAlerts();
+});
+
+function loadFullAlerts() {
+  fetch('/api/alerts')
+    .then(res => res.json())
+    .then(alerts => {
+      const container = document.getElementById('alerts-full-list');
+      if (!alerts || alerts.length === 0) {
+        container.innerHTML = `<div class="p-5 text-center text-muted">No security alerts currently active.</div>`;
+        return;
+      }
+
+      container.innerHTML = alerts.map(a => `
+        <div class="p-3 mb-3 rounded ${a.is_read ? 'bg-dark border border-secondary text-muted' : 'bg-dark border border-danger shadow-sm'} d-flex align-items-center justify-content-between">
+          <div class="d-flex align-items-center gap-3">
+            <div class="fs-4">
+              ${a.severity === 'CRITICAL' ? '<i class="fa-solid fa-triangle-exclamation text-danger"></i>' : '<i class="fa-solid fa-circle-exclamation text-warning"></i>'}
+            </div>
+            <div>
+              <div class="fw-bold ${a.is_read ? 'text-muted' : 'text-light'}">${a.message}</div>
+              <div class="small font-mono text-muted">${a.created_at}</div>
+            </div>
+          </div>
+          <div>
+            ${!a.is_read ? `
+              <button onclick="markSingleAlertRead(${a.id})" class="btn btn-sm btn-outline-cyan border-cyan text-cyan">
+                <i class="fa-solid fa-check me-1"></i> Dismiss
+              </button>
+            ` : '<span class="badge bg-secondary"><i class="fa-solid fa-check me-1"></i> Read</span>'}
+          </div>
+        </div>
+      `).join('');
+    });
+}
+
+function markSingleAlertRead(alertId) {
+  fetch('/api/alerts/mark-read', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ alert_id: alertId })
+  })
+  .then(() => {
+    loadFullAlerts();
+    updateAlertBadge();
+  });
+}
+
+function markAllAlertsRead() {
+  fetch('/api/alerts/mark-read', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mark_all: true })
+  })
+  .then(() => {
+    loadFullAlerts();
+    updateAlertBadge();
+  });
+}
+</script>
+{% endblock %}
