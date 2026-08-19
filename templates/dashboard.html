@@ -294,7 +294,7 @@ function startDashboardScan() {
     aws_secret_access_key: document.getElementById('dashboard-aws-secret-access-key').value.trim(),
     aws_session_token: document.getElementById('dashboard-aws-session-token').value.trim()
   };
-  triggerScanExecution(false, document.getElementById('dashboard-aws-region').value, credentials, () => clearAwsCredentialFields(true));
+  triggerScanExecution(false, document.getElementById('dashboard-aws-region').value, credentials);
 }
 
 function saveAwsConnectionAndScan() {
@@ -303,7 +303,7 @@ function saveAwsConnectionAndScan() {
     aws_secret_access_key: document.getElementById('dashboard-aws-secret-access-key').value.trim(),
     aws_session_token: document.getElementById('dashboard-aws-session-token').value.trim()
   };
-  triggerScanExecution(false, document.getElementById('dashboard-aws-region').value, credentials, () => clearAwsCredentialFields(true));
+  triggerScanExecution(false, document.getElementById('dashboard-aws-region').value, credentials);
 }
 
 function loadAwsConnectionStatus() {
