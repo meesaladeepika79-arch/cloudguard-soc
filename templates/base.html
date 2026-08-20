@@ -75,7 +75,7 @@
       <hr class="mx-3 my-3 royal-hr">
 
       <div class="nav-item">
-        <a href="{{ url_for('auth.logout') }}" class="nav-link nav-logout" onclick="sessionStorage.removeItem('cloudguard_aws_credentials');">
+        <a href="{{ url_for('auth.logout') }}" class="nav-link nav-logout">
           <i class="fa-solid fa-right-from-bracket"></i>
           <span>Logout</span>
         </a>
@@ -103,7 +103,7 @@
           <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end royal-dropdown">
             <li><a class="dropdown-item" href="{{ url_for('reports.index') }}"><i class="fa-solid fa-file me-2"></i> Audit Report</a></li>
             <li><hr class="dropdown-divider royal-hr"></li>
-            <li><a class="dropdown-item text-danger" href="{{ url_for('auth.logout') }}" onclick="sessionStorage.removeItem('cloudguard_aws_credentials');"><i class="fa-solid fa-right-from-bracket me-2"></i> Logout</a></li>
+            <li><a class="dropdown-item text-danger" href="{{ url_for('auth.logout') }}"><i class="fa-solid fa-right-from-bracket me-2"></i> Logout</a></li>
           </ul>
         </div>
       </div>
