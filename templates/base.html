@@ -101,9 +101,16 @@
             <i class="fa-solid fa-user-shield me-1 royal-gold-text"></i> {{ session.get('username', 'Admin') }}
           </button>
           <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end royal-dropdown">
-            <li><a class="dropdown-item" href="{{ url_for('reports.index') }}"><i class="fa-solid fa-file me-2"></i> Audit Report</a></li>
-            <li><hr class="dropdown-divider royal-hr"></li>
-            <li><a class="dropdown-item text-danger" href="{{ url_for('auth.logout') }}"><i class="fa-solid fa-right-from-bracket me-2"></i> Logout</a></li>
+            <li class="dropend">
+              <a class="dropdown-item dropdown-toggle" href="#" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="fa-solid fa-ellipsis me-2"></i> View more
+              </a>
+              <ul class="dropdown-menu dropdown-menu-dark royal-dropdown">
+                <li><a class="dropdown-item" href="{{ url_for('reports.index') }}"><i class="fa-solid fa-file me-2"></i> Audit Report</a></li>
+                <li><hr class="dropdown-divider royal-hr"></li>
+                <li><a class="dropdown-item text-danger" href="{{ url_for('auth.logout') }}"><i class="fa-solid fa-right-from-bracket me-2"></i> Logout</a></li>
+              </ul>
+            </li>
           </ul>
         </div>
       </div>
