@@ -2,14 +2,21 @@ from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 
+from security.credential_encryption import encrypt_value, decrypt_value
+
 db = SQLAlchemy()
 
 class User(db.Model):
     __tablename__ = 'users'
-    
+
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
+    email = db.Column(db.String(120), nullable=True)
+    otp_secret = db.Column(db.String(64), nullable=True)
+    aws_access_key_id_encrypted = db.Column(db.String(512), nullable=True)
+    aws_secret_access_key_encrypted = db.Column(db.String(512), nullable=True)
+    aws_region = db.Column(db.String(64), default='us-east-1')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def set_password(self, password):
@@ -17,11 +24,24 @@ class User(db.Model):
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
-        
+
+    def set_aws_credentials(self, access_key_id, secret_access_key, region):
+        self.aws_access_key_id_encrypted = encrypt_value(access_key_id)
+        self.aws_secret_access_key_encrypted = encrypt_value(secret_access_key)
+        self.aws_region = region
+
+    def get_aws_credentials(self):
+        return {
+            'aws_access_key_id': decrypt_value(self.aws_access_key_id_encrypted),
+            'aws_secret_access_key': decrypt_value(self.aws_secret_access_key_encrypted),
+            'region': self.aws_region
+        }
+
     def to_dict(self):
         return {
             'id': self.id,
             'username': self.username,
+            'email': self.email,
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
 

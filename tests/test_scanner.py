@@ -3,6 +3,7 @@ import pathlib
 import pytest
 from security.rules import check_s3_rules, check_ec2_rules, check_iam_rules, check_sg_rules, check_rds_rules
 from security.risk_engine import calculate_security_score, get_score_category
+from security.aws_scanner import validate_aws_key_format
 from models.database_models import User
 
 def test_s3_public_access_rule():
@@ -77,6 +78,19 @@ def test_user_password_hashing():
     assert u.password_hash != 'securepassword123'
     assert u.check_password('securepassword123') is True
     assert u.check_password('wrongpassword') is False
+
+
+def test_validate_aws_key_format_enforces_strong_credentials():
+    ok, message = validate_aws_key_format(
+        'AKIAIOSFODNN7EXAMPLE',
+        'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
+    )
+    assert ok is True
+    assert message is None
+
+    invalid, msg = validate_aws_key_format('bad-key', 'short-secret')
+    assert invalid is False
+    assert 'invalid' in msg.lower()
 
 
 def test_dashboard_password_fields_do_not_trigger_password_manager_suggestions():
