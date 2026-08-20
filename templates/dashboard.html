@@ -294,6 +294,12 @@ document.addEventListener('DOMContentLoaded', () => {
   ['dashboard-aws-access-key-id', 'dashboard-aws-secret-access-key', 'dashboard-aws-session-token'].forEach(fieldId => {
     document.getElementById(fieldId).addEventListener('input', rememberAwsCredentialFields);
   });
+  document.getElementById('dashboard-aws-secret-access-key').addEventListener('input', () => {
+    const field = document.getElementById('dashboard-aws-secret-access-key');
+    if (field.value.length > 0) {
+      field.setAttribute('aria-label', 'AWS secret access key');
+    }
+  });
 });
 
 function isWebsiteRefresh() {
@@ -353,14 +359,21 @@ function disconnectAwsAccount() {
 }
 
 function saveAwsCredentials(credentials) {
-  sessionStorage.setItem('cloudguard_aws_credentials', JSON.stringify(credentials));
+  const safeCredentials = {
+    aws_access_key_id: credentials.aws_access_key_id || '',
+    aws_secret_access_key: credentials.aws_secret_access_key ? '***hidden***' : '',
+    aws_session_token: credentials.aws_session_token ? '***hidden***' : ''
+  };
+  sessionStorage.setItem('cloudguard_aws_credentials', JSON.stringify(safeCredentials));
 }
 
 function rememberAwsCredentialFields() {
+  const secret = document.getElementById('dashboard-aws-secret-access-key').value;
+  const token = document.getElementById('dashboard-aws-session-token').value;
   saveAwsCredentials({
     aws_access_key_id: document.getElementById('dashboard-aws-access-key-id').value,
-    aws_secret_access_key: document.getElementById('dashboard-aws-secret-access-key').value,
-    aws_session_token: document.getElementById('dashboard-aws-session-token').value
+    aws_secret_access_key: secret,
+    aws_session_token: token
   });
 }
 
@@ -371,8 +384,8 @@ function restoreAwsCredentials() {
   try {
     const credentials = JSON.parse(saved);
     document.getElementById('dashboard-aws-access-key-id').value = credentials.aws_access_key_id || '';
-    document.getElementById('dashboard-aws-secret-access-key').value = credentials.aws_secret_access_key || '';
-    document.getElementById('dashboard-aws-session-token').value = credentials.aws_session_token || '';
+    document.getElementById('dashboard-aws-secret-access-key').value = '';
+    document.getElementById('dashboard-aws-session-token').value = '';
   } catch (error) {
     sessionStorage.removeItem('cloudguard_aws_credentials');
   }

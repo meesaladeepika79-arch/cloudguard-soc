@@ -6,11 +6,34 @@ Never stores credentials; relies on environment variables or standard AWS creden
 
 import logging
 import os
+import re
 
 logger = logging.getLogger(__name__)
 
+AWS_ACCESS_KEY_PATTERN = re.compile(r'^AKIA[0-9A-Z]{16}$')
+AWS_SECRET_KEY_PATTERN = re.compile(r'^[A-Za-z0-9/+=]{40}$')
+
+
+def validate_aws_key_format(access_key_id, secret_access_key):
+    """Validate AWS access key format before contacting AWS."""
+    if not access_key_id or not secret_access_key:
+        return False, 'AWS Access Key ID and Secret Access Key are required.'
+
+    if not AWS_ACCESS_KEY_PATTERN.match((access_key_id or '').strip()):
+        return False, 'Invalid AWS_ACCESS_KEY_ID format. Use a standard AWS access key ID like AKIA...'
+
+    if not AWS_SECRET_KEY_PATTERN.match((secret_access_key or '').strip()):
+        return False, 'Invalid AWS_SECRET_ACCESS_KEY format. Secret keys must be 40 characters using letters, numbers, and /+=.'
+
+    return True, None
+
+
 def validate_aws_credentials(region_name, access_key_id, secret_access_key, session_token=None):
     """Validate submitted credentials without storing or scanning with them."""
+    valid, error_message = validate_aws_key_format(access_key_id, secret_access_key)
+    if not valid:
+        return False, error_message
+
     try:
         import boto3
         from botocore.config import Config as BotoClientConfig
