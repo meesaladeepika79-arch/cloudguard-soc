@@ -6,6 +6,7 @@ from security.credential_encryption import encrypt_value, decrypt_value
 
 db = SQLAlchemy()
 
+
 class User(db.Model):
     __tablename__ = 'users'
 
@@ -53,14 +54,13 @@ class Resource(db.Model):
     owner_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)
     resource_id = db.Column(db.String(120), unique=True, nullable=False)
     resource_name = db.Column(db.String(120), nullable=False)
-    resource_type = db.Column(db.String(50), nullable=False) # S3, EC2, IAM, Security Group, RDS
+    resource_type = db.Column(db.String(50), nullable=False)
     region = db.Column(db.String(50), default="us-east-1")
     status = db.Column(db.String(50), default="Active")
     last_scanned = db.Column(db.DateTime, default=datetime.utcnow)
     security_score = db.Column(db.Integer, default=100)
-    config_details = db.Column(db.Text, nullable=True) # JSON payload string of properties
+    config_details = db.Column(db.Text, nullable=True)
 
-    # Relationship to findings
     findings = db.relationship('Finding', backref='resource_rel', lazy=True, cascade="all, delete-orphan")
 
     def to_dict(self):
@@ -86,13 +86,12 @@ class Finding(db.Model):
     resource_id = db.Column(db.String(120), db.ForeignKey('resources.resource_id'), nullable=False)
     title = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text, nullable=False)
-    severity = db.Column(db.String(20), nullable=False) # CRITICAL, HIGH, MEDIUM, LOW, INFO
+    severity = db.Column(db.String(20), nullable=False)
     recommendation = db.Column(db.Text, nullable=False)
     threat_context = db.Column(db.Text, nullable=True)
-    status = db.Column(db.String(30), default="Open") # Open, Investigating, Resolved, Ignored
+    status = db.Column(db.String(30), default="Open")
     detected_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    # Relationship to alerts
     alerts = db.relationship('Alert', backref='finding_rel', lazy=True, cascade="all, delete-orphan")
 
     def to_dict(self):
